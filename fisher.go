@@ -12,15 +12,32 @@ import (
 	"time"
 	"fmt"
 	"math/rand"
+	"strconv"
 )
 
+var fileName = "screen.png"
+var templateDir = "./templates"
+var confLevel = float32(0.75)
+
 func main() {
-	fileName := os.Args[1]
-	templateDir := os.Args[2]
+	if len(os.Args) > 3 {
+		confLevel = getConfLvl()
+		fileName = os.Args[2]
+		templateDir = os.Args[3]
+	} else if len(os.Args) > 1 {
+		confLevel = getConfLvl()
+	}
+	f, err := os.OpenFile("fisherlogs.txt", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	log.SetOutput(f)
 	os.Mkdir("failed", os.FileMode(777))
 	templates := loadTemplates(templateDir)
 
-	pause, afk, pipe, refreshTemplates := runBackgroundBehavior()
+	pause, afk, pipe := runBackgroundBehavior()
 
 	for {
 		select {
@@ -28,23 +45,19 @@ func main() {
 			{
 				log.Println("Pause")
 				<-pause
+				<-pause
 				log.Println("Continue")
 			}
 		case <-afk:
 			{
 				log.Println("Afk")
-				time.Sleep(10 * time.Minute)
+				//time.Sleep(10 * time.Minute)
 			}
 		case <-pipe:
 			{
 				log.Println("Bright Baubles")
 				robotgo.KeyTap("h")
 				robotgo.Sleep(3)
-			}
-		case <-refreshTemplates:
-			{
-				log.Println("Refresh templates")
-				templates = loadTemplates(templateDir)
 			}
 		default:
 			{
@@ -56,6 +69,14 @@ func main() {
 
 	}
 
+}
+
+func getConfLvl() float32 {
+	value, err := strconv.ParseFloat(os.Args[1], 32)
+	if err != nil {
+		value = 0.75
+	}
+	return float32(value)
 }
 
 func loadTemplates(templateDir string) []gocv.Mat {
@@ -70,11 +91,10 @@ func loadTemplates(templateDir string) []gocv.Mat {
 	return templates
 }
 
-func runBackgroundBehavior() (chan int, chan bool, chan bool, chan int) {
+func runBackgroundBehavior() (chan int, chan bool, chan bool) {
 	pause := make(chan int)
 	afk := make(chan bool)
 	pipe := make(chan bool)
-	refreshTemplates := make(chan int)
 
 	go func() {
 		for {
@@ -84,7 +104,7 @@ func runBackgroundBehavior() (chan int, chan bool, chan bool, chan int) {
 	go func() {
 		for {
 			timeToWait := time.Duration(rand.Intn(100) + 20)
-			time.Sleep(timeToWait * time.Minute)
+			time.Sleep(timeToWait * time.Second)
 			afk <- true
 		}
 	}()
@@ -94,19 +114,14 @@ func runBackgroundBehavior() (chan int, chan bool, chan bool, chan int) {
 			pipe <- true
 		}
 	}()
-	go func() {
-		for {
-			refreshTemplates <- robotgo.AddEvent("f3")
-		}
-	}()
-	return pause, afk, pipe, refreshTemplates
+	return pause, afk, pipe
 }
 
 func findPipe(fileName string, templates []gocv.Mat) {
 	createScreenFile(fileName)
-	point, err := utils.Detect(fileName, templates)
+	point, err := utils.Detect(fileName, templates, confLevel)
 	if err != nil {
-		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10) + 1)
+		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10)+1)
 		log.Println(err, name)
 		os.Rename(fileName, name)
 		return
@@ -136,9 +151,7 @@ func loot() {
 
 func fishIsBiting(fileName string, templates []gocv.Mat) bool {
 	createScreenFile(fileName)
-	start := time.Now()
-	_, err := utils.Detect(fileName, templates)
-	fmt.Println(time.Since(start))
+	_, err := utils.Detect(fileName, templates, confLevel)
 	if err != nil {
 		return true
 	}
@@ -146,7 +159,7 @@ func fishIsBiting(fileName string, templates []gocv.Mat) bool {
 }
 
 func createScreenFile(fileName string) {
-	img, err := screenshot.Capture(0, 0, 400, 300)
+	img, err := screenshot.Capture(0, 0, 300, 300)
 	if err != nil {
 		panic(err)
 	}
