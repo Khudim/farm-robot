@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"gocv.io/x/gocv"
-	"log"
-	"image"
 	"errors"
+	"gocv.io/x/gocv"
+	"image"
+	"log"
 )
 
 func Detect(filename string, templates []gocv.Mat, confLevel float32) (*image.Point, error) {
@@ -13,7 +13,7 @@ func Detect(filename string, templates []gocv.Mat, confLevel float32) (*image.Po
 		log.Printf("Invalid read of file %s when detect", filename)
 		return nil, errors.New("can't detect pipe")
 	}
-	defer img.Close()
+	defer closeResource(img)
 	result := make(chan image.Point, len(templates))
 
 	for _, template := range templates {
@@ -33,9 +33,9 @@ func Detect(filename string, templates []gocv.Mat, confLevel float32) (*image.Po
 
 func findTemplate(template, img gocv.Mat, confLevel float32, pointChannel chan image.Point) {
 	result := gocv.NewMat()
-	defer result.Close()
+	defer closeResource(result)
 	mask := gocv.NewMat()
-	defer mask.Close()
+	defer closeResource(mask)
 
 	gocv.MatchTemplate(img, template, &result, 5, mask)
 
@@ -45,5 +45,11 @@ func findTemplate(template, img gocv.Mat, confLevel float32, pointChannel chan i
 	} else {
 		log.Print("not found ", maxConfidence)
 		pointChannel <- image.Point{0, 0}
+	}
+}
+
+func closeResource(resource gocv.Mat) {
+	if err := resource.Close(); err != nil {
+		log.Println(err)
 	}
 }

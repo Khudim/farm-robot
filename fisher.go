@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/go-vgo/robotgo"
 	"github.com/kbinani/screenshot"
+	"github.com/olebedev/config"
 	"gocv.io/x/gocv"
 	"image/png"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -15,27 +17,30 @@ import (
 	"time"
 )
 
-var fileName = "screen.png"
-var templateDir = "./templates"
-var confLevel = float32(0.75)
+type AppConfig struct {
+	fileName       string
+	templateDir    string
+	confLevel      float32
+	failTolerance  int
+	refreshRate    int
+	screenShotSize float64
+}
 
 func main() {
-	if len(os.Args) > 3 {
-		confLevel = getConfLvl()
-		fileName = os.Args[2]
-		templateDir = os.Args[3]
-	} else if len(os.Args) > 1 {
-		confLevel = getConfLvl()
+	mode := "default"
+	if len(os.Args) > 1 {
+		mode = os.Args[1]
 	}
+	appConfig := parseConfig(mode)
 	f, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	defer f.Close()
 
-	log.SetOutput(f)
+	//log.SetOutput(f)
 	os.Mkdir("failed", os.FileMode(777))
-	templates := loadTemplates(templateDir)
+	templates := loadTemplates(appConfig)
 
 	pause := make(chan bool)
 	unPause := make(chan bool)
@@ -61,13 +66,16 @@ func main() {
 		case <-afk:
 			{
 				log.Println("Afk")
+				robotgo.KeyTap("w")
+				robotgo.Sleep(3)
+				robotgo.KeyTap("s")
 				//time.Sleep(10 * time.Minute)
 			}
 		case <-pipe:
 			{
-				log.Println("Bright Baubles")
+				/*log.Println("Bright Baubles")
 				robotgo.KeyTap("h")
-				robotgo.Sleep(3)
+				robotgo.Sleep(3)*/
 			}
 		case <-exit:
 			{
@@ -78,12 +86,30 @@ func main() {
 			{
 				robotgo.KeyTap("k", "control")
 				robotgo.Sleep(3)
-				findPipe(fileName, templates)
+				findPipe(appConfig, templates)
 			}
 		}
 
 	}
 
+}
+
+func parseConfig(mode string) AppConfig {
+	appConfig := AppConfig{fileName: "screen.png", templateDir: "./templates", confLevel: 0.75, refreshRate: 4, screenShotSize: 0.5}
+
+	if file, err := ioutil.ReadFile("./fisher.properties"); err == nil {
+		if cfg, er := config.ParseYaml(string(file)); er == nil {
+			if v, e := cfg.Float64("detector.confLevel"); e == nil {
+				appConfig.confLevel = float32(v)
+			}
+			if v, e := cfg.String("templates." + mode); e == nil {
+				appConfig.templateDir = v
+			}
+		}
+	} else {
+		panic(err)
+	}
+	return appConfig
 }
 
 func getConfLvl() float32 {
@@ -94,9 +120,9 @@ func getConfLvl() float32 {
 	return float32(value)
 }
 
-func loadTemplates(templateDir string) []gocv.Mat {
+func loadTemplates(config AppConfig) []gocv.Mat {
 	var templates []gocv.Mat
-	filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(config.templateDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".png" {
 			templates = append(templates, gocv.IMRead(path, gocv.IMReadGrayScale))
 		}
@@ -128,11 +154,12 @@ func runBackgroundBehavior() (chan bool, chan bool) {
 	return afk, pipe
 }
 
-func findPipe(fileName string, templates []gocv.Mat) {
-	if err := createScreenFile(fileName); err != nil {
+func findPipe(config *AppConfig, templates []gocv.Mat) {
+	fileName := config.fileName
+	if err := createScreenFile(config); err != nil {
 		return
 	}
-	if point, err := utils.Detect(fileName, templates, confLevel); err != nil {
+	if point, err := utils.Detect(fileName, templates, config.confLevel); err != nil {
 		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10)+1)
 		log.Println(err, name)
 		_ = os.Rename(fileName, name)
@@ -141,8 +168,8 @@ func findPipe(fileName string, templates []gocv.Mat) {
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		robotgo.Sleep(2)
 
-		for start := time.Now(); time.Since(start) < 20*time.Second; {
-			if fishIsBiting(fileName, templates) {
+		for start := time.Now(); time.Since(start) < 25*time.Second; {
+			if fishIsBiting(config, templates) {
 				log.Println("get the signal")
 				loot()
 				robotgo.MicroSleep(500)
@@ -161,22 +188,25 @@ func loot() {
 	robotgo.KeyToggle("shift", "up")
 }
 
-func fishIsBiting(fileName string, templates []gocv.Mat) bool {
-	if err := createScreenFile(fileName); err != nil {
+func fishIsBiting(config *AppConfig, templates []gocv.Mat) bool {
+	if err := createScreenFile(config); err != nil {
 		return false
 	}
-	if _, err := utils.Detect(fileName, templates, confLevel); err != nil {
+	if _, err := utils.Detect(config.fileName, templates, config.confLevel); err != nil {
 		return true
 	}
 	return false
 }
 
-func createScreenFile(fileName string) error {
-	img, err := screenshot.Capture(0, 0, 300, 300)
+func createScreenFile(appConfig *AppConfig) error {
+	screen := screenshot.GetDisplayBounds(0)
+	img, err := screenshot.Capture(0, 0,
+		int(float64(screen.Max.X)*appConfig.screenShotSize),
+		int(float64(screen.Max.Y)*appConfig.screenShotSize))
 	if err != nil {
 		return err
 	}
-	file, err := os.Create(fileName)
+	file, err := os.Create(appConfig.fileName)
 	if err != nil {
 		return err
 	}
