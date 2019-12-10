@@ -22,16 +22,18 @@ func main() {
 	}
 	appConfig := config.Parse(mode)
 
-	f, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
+	if f, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
 		log.Fatalf("error opening file: %v", err)
+	} else {
+		defer f.Close()
+		//log.SetOutput(f)
 	}
-	defer f.Close()
-
-	//log.SetOutput(f)
-	os.Mkdir("failed", os.FileMode(777))
+	_ = os.Mkdir("failed", os.FileMode(777))
 	templates := loadTemplates(appConfig.TemplateDir)
-	clamsTemplates := loadTemplates(appConfig.TemplateClamsDir)
+	clamsTemplates := loadTemplates(appConfig.TemplateClams)
+	meatTemplate := loadTemplates(appConfig.TemplateMeat)
+	confirmTemplate := loadTemplates(appConfig.TemplateConfirm)
+	lootTemplate := loadTemplates(appConfig.TemplateLoot)
 
 	pause := make(chan bool)
 	unPause := make(chan bool)
@@ -57,12 +59,14 @@ func main() {
 		case <-clams:
 			{
 				log.Println("Clams time.")
-				fileName := "clam.png"
-				c := 0
-				ok := true
-				for c < 10 && ok {
-					ok = findClam(fileName, clamsTemplates)
-					c++
+
+				for i := 0; i < 15 && find("clam.png", clamsTemplates, 1, 1); {
+					loot()
+					i++
+				}
+				for i := 0; i < 2 && find("meat.png", meatTemplate, 1, 1); {
+					drop(confirmTemplate)
+					i++
 				}
 			}
 		case <-exit:
@@ -74,7 +78,10 @@ func main() {
 			{
 				robotgo.KeyTap("k", "control")
 				robotgo.Sleep(3)
-				findPipe(appConfig, templates)
+				if isFishBiting(appConfig, templates) && find("loot.png", lootTemplate, 0.2, 1) {
+					robotgo.MouseClick("right")
+				}
+				robotgo.MicroSleep(500)
 			}
 		}
 
@@ -82,11 +89,20 @@ func main() {
 
 }
 
-func findClam(fileName string, clamsTemplates []gocv.Mat) bool {
-	if err := createScreenFile(1, 1, fileName); err == nil {
+func drop(confirmTemplate []gocv.Mat) {
+	screen := screenshot.GetDisplayBounds(0)
+	robotgo.MouseClick("left")
+	robotgo.MoveMouseSmooth(screen.Max.X/2, screen.Max.Y/2)
+	robotgo.MouseClick("left")
+
+	find("confirm.png", confirmTemplate, 1, 1)
+	robotgo.MouseClick("left")
+}
+
+func find(fileName string, clamsTemplates []gocv.Mat, x, y float64) bool {
+	if err := createScreenFile(x, y, fileName); err == nil {
 		if point, err := detector.Detect(fileName, clamsTemplates, 0.80); err == nil && point != nil {
 			robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
-			loot()
 			return true
 		}
 	}
@@ -120,11 +136,11 @@ func runBackgroundBehavior() chan bool {
 
 var errorCount = 0
 
-func findPipe(config config.FisherConfig, templates []gocv.Mat) {
+func isFishBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 	fileName := config.FileName
 	sizeMod := config.ScreenshotsSize
 	if err := createScreenFile(sizeMod, sizeMod, fileName); err != nil {
-		return
+		return false
 	}
 	if point, err := detector.Detect(fileName, templates, config.ConfLevel); err != nil {
 		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10)+1)
@@ -134,7 +150,7 @@ func findPipe(config config.FisherConfig, templates []gocv.Mat) {
 		if errorCount > 100 {
 			os.Exit(0)
 		}
-		return
+		return false
 	} else {
 		errorCount = 0
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
@@ -146,9 +162,7 @@ func findPipe(config config.FisherConfig, templates []gocv.Mat) {
 		for start := time.Now(); time.Since(start) < 25*time.Second; {
 			if fishIsBiting(config, templates) {
 				log.Println("get the signal")
-				loot()
-				robotgo.MicroSleep(500)
-				return
+				return true
 			}
 			t := (time.Millisecond * time.Duration(checkEveryMS)) - time.Since(lastCheck)
 			if t > 0 {
@@ -156,16 +170,8 @@ func findPipe(config config.FisherConfig, templates []gocv.Mat) {
 			}
 			lastCheck = time.Now()
 		}
-		for start := time.Now(); time.Since(start) < 25*time.Second; {
-			if fishIsBiting(config, templates) {
-				log.Println("get the signal")
-				loot()
-				robotgo.MicroSleep(500)
-				return
-			}
-			log.Println("Scan for bite")
-		}
 		log.Println("lost the fish")
+		return false
 	}
 }
 
@@ -186,7 +192,7 @@ func fishIsBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 	return false
 }
 
-func createScreenFile(x float64, y float64, fileName string) error {
+func createScreenFile(x, y float64, fileName string) error {
 	screen := screenshot.GetDisplayBounds(0)
 	img, err := screenshot.Capture(0, 0,
 		int(float64(screen.Max.X)*x),
