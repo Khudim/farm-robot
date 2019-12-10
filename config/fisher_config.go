@@ -6,21 +6,23 @@ import (
 )
 
 type FisherConfig struct {
-	FileName        string
-	TemplateDir     string
-	ConfLevel       float32
-	FailTolerance   int
-	RefreshRate     int
-	ScreenshotsSize float64
+	FileName         string
+	TemplateDir      string
+	TemplateClamsDir string
+	ConfLevel        float32
+	FailTolerance    int
+	RefreshRate      int
+	ScreenshotsSize  float64
 }
 
 func Parse(mode string) FisherConfig {
 	appConfig := FisherConfig{
-		FileName:        "screen.png",
-		TemplateDir:     "./templates",
-		ConfLevel:       0.75,
-		RefreshRate:     4,
-		ScreenshotsSize: 0.5,
+		FileName:         "screen.png",
+		TemplateDir:      "./templates",
+		TemplateClamsDir: "./clams",
+		ConfLevel:        0.75,
+		RefreshRate:      4,
+		ScreenshotsSize:  0.5,
 	}
 
 	if file, err := ioutil.ReadFile("./fisher.properties"); err == nil {

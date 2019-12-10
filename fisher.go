@@ -21,6 +21,7 @@ func main() {
 		mode = os.Args[1]
 	}
 	appConfig := config.Parse(mode)
+
 	f, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
@@ -29,7 +30,8 @@ func main() {
 
 	//log.SetOutput(f)
 	os.Mkdir("failed", os.FileMode(777))
-	templates := loadTemplates(appConfig)
+	templates := loadTemplates(appConfig.TemplateDir)
+	clamsTemplates := loadTemplates(appConfig.TemplateClamsDir)
 
 	pause := make(chan bool)
 	unPause := make(chan bool)
@@ -42,7 +44,7 @@ func main() {
 		}
 	}()
 
-	afk, pipe := runBackgroundBehavior()
+	clams := runBackgroundBehavior()
 
 	for {
 		select {
@@ -52,19 +54,16 @@ func main() {
 				<-unPause
 				log.Println("Continue")
 			}
-		case <-afk:
+		case <-clams:
 			{
-				log.Println("Afk")
-				robotgo.KeyTap("w")
-				robotgo.Sleep(3)
-				robotgo.KeyTap("s")
-				//time.Sleep(10 * time.Minute)
-			}
-		case <-pipe:
-			{
-				/*log.Println("Bright Baubles")
-				robotgo.KeyTap("h")
-				robotgo.Sleep(3)*/
+				log.Println("Clams time.")
+				fileName := "clam.png"
+				c := 0
+				ok := true
+				for c < 10 && ok {
+					ok = findClam(fileName, clamsTemplates)
+					c++
+				}
 			}
 		case <-exit:
 			{
@@ -83,9 +82,20 @@ func main() {
 
 }
 
-func loadTemplates(conf config.FisherConfig) []gocv.Mat {
+func findClam(fileName string, clamsTemplates []gocv.Mat) bool {
+	if err := createScreenFile(1, 1, fileName); err == nil {
+		if point, err := detector.Detect(fileName, clamsTemplates, 0.80); err == nil && point != nil {
+			robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
+			loot()
+			return true
+		}
+	}
+	return false
+}
+
+func loadTemplates(templateDir string) []gocv.Mat {
 	var templates []gocv.Mat
-	_ = filepath.Walk(conf.TemplateDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".png" {
 			templates = append(templates, gocv.IMRead(path, gocv.IMReadGrayScale))
 		}
@@ -94,40 +104,39 @@ func loadTemplates(conf config.FisherConfig) []gocv.Mat {
 
 	return templates
 }
+func runBackgroundBehavior() chan bool {
 
-func runBackgroundBehavior() (chan bool, chan bool) {
-
-	afk := make(chan bool)
-	pipe := make(chan bool)
+	clams := make(chan bool)
 
 	go func() {
 		for {
-			timeToWait := time.Duration(rand.Intn(100) + 20)
-			time.Sleep(timeToWait * time.Second)
-			afk <- true
-		}
-	}()
-	go func() {
-		for {
-			time.Sleep(10 * time.Minute)
-			pipe <- true
+			time.Sleep(30 * time.Minute)
+			clams <- true
 		}
 	}()
 
-	return afk, pipe
+	return clams
 }
+
+var errorCount = 0
 
 func findPipe(config config.FisherConfig, templates []gocv.Mat) {
 	fileName := config.FileName
-	if err := createScreenFile(config); err != nil {
+	sizeMod := config.ScreenshotsSize
+	if err := createScreenFile(sizeMod, sizeMod, fileName); err != nil {
 		return
 	}
 	if point, err := detector.Detect(fileName, templates, config.ConfLevel); err != nil {
 		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10)+1)
 		log.Println(err, name)
 		_ = os.Rename(fileName, name)
+		errorCount++
+		if errorCount > 100 {
+			os.Exit(0)
+		}
 		return
 	} else {
+		errorCount = 0
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		robotgo.Sleep(2)
 
@@ -135,7 +144,6 @@ func findPipe(config config.FisherConfig, templates []gocv.Mat) {
 		checkEveryMS := 1000 / config.RefreshRate
 
 		for start := time.Now(); time.Since(start) < 25*time.Second; {
-			log.Println("Scan for bite")
 			if fishIsBiting(config, templates) {
 				log.Println("get the signal")
 				loot()
@@ -169,7 +177,7 @@ func loot() {
 }
 
 func fishIsBiting(config config.FisherConfig, templates []gocv.Mat) bool {
-	if err := createScreenFile(config); err != nil {
+	if err := createScreenFile(config.ScreenshotsSize, config.ScreenshotsSize, config.FileName); err != nil {
 		return false
 	}
 	if _, err := detector.Detect(config.FileName, templates, config.ConfLevel); err != nil {
@@ -178,15 +186,15 @@ func fishIsBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 	return false
 }
 
-func createScreenFile(conf config.FisherConfig) error {
+func createScreenFile(x float64, y float64, fileName string) error {
 	screen := screenshot.GetDisplayBounds(0)
 	img, err := screenshot.Capture(0, 0,
-		int(float64(screen.Max.X)*conf.ScreenshotsSize),
-		int(float64(screen.Max.Y)*conf.ScreenshotsSize))
+		int(float64(screen.Max.X)*x),
+		int(float64(screen.Max.Y)*y))
 	if err != nil {
 		return err
 	}
-	file, err := os.Create(conf.FileName)
+	file, err := os.Create(fileName)
 	if err != nil {
 		return err
 	}

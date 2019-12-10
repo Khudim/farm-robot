@@ -43,8 +43,7 @@ func findTemplate(template, img gocv.Mat, confLevel float32, pointChannel chan i
 	if maxConfidence > confLevel {
 		pointChannel <- point
 	} else {
-		log.Print("not found ", maxConfidence)
-		pointChannel <- image.Point{0, 0}
+		pointChannel <- image.Point{}
 	}
 }
 
