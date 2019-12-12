@@ -78,8 +78,12 @@ func main() {
 			{
 				robotgo.KeyTap("k", "control")
 				robotgo.Sleep(3)
-				if isFishBiting(appConfig, templates) && find("loot.png", lootTemplate, 0.2, 1) {
+				if isFishBiting(appConfig, templates) {
 					robotgo.MouseClick("right")
+					robotgo.MicroSleep(1000)
+					if find("loot.png", lootTemplate, 0.2, 1) {
+						robotgo.MouseClick("right")
+					}
 				}
 				robotgo.MicroSleep(500)
 			}
@@ -94,7 +98,7 @@ func drop(confirmTemplate []gocv.Mat) {
 	robotgo.MouseClick("left")
 	robotgo.MoveMouseSmooth(screen.Max.X/2, screen.Max.Y/2)
 	robotgo.MouseClick("left")
-
+	robotgo.MicroSleep(1000)
 	find("confirm.png", confirmTemplate, 1, 1)
 	robotgo.MouseClick("left")
 }
@@ -126,7 +130,7 @@ func runBackgroundBehavior() chan bool {
 
 	go func() {
 		for {
-			time.Sleep(30 * time.Minute)
+			time.Sleep(10 * time.Minute)
 			clams <- true
 		}
 	}()

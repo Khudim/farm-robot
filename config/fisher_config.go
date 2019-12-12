@@ -21,11 +21,11 @@ type FisherConfig struct {
 func Parse(mode string) FisherConfig {
 	appConfig := FisherConfig{
 		FileName:        "screen.png",
-		TemplateDir:     "./templates",
-		TemplateClams:   "./clams",
-		TemplateMeat:    "./meat",
-		TemplateConfirm: "./confirm",
-		TemplateLoot:    "./loot",
+		TemplateDir:     "./templates/hinterlands",
+		TemplateClams:   "./templates/clams",
+		TemplateMeat:    "./templates/meat",
+		TemplateConfirm: "./templates/confirm",
+		TemplateLoot:    "./templates/loot",
 		ConfLevel:       0.75,
 		RefreshRate:     4,
 		ScreenshotsSize: 0.5,
@@ -37,7 +37,7 @@ func Parse(mode string) FisherConfig {
 				appConfig.ConfLevel = float32(v)
 			}
 			if v, e := cfg.String("templates." + mode); e == nil {
-				appConfig.TemplateDir = v
+				appConfig.TemplateDir = "./templates/" + v
 			}
 			if v, e := cfg.Int("detector.refreshRate"); e == nil {
 				appConfig.RefreshRate = v
