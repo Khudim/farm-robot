@@ -64,9 +64,8 @@ func main() {
 					loot()
 					i++
 				}
-				for i := 0; i < 2 && find("meat.png", meatTemplate, 1, 1); {
+				if find("meat.png", meatTemplate, 1, 1) {
 					drop(confirmTemplate)
-					i++
 				}
 			}
 		case <-exit:
