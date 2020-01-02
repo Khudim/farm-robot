@@ -48,6 +48,8 @@ func main() {
 
 	clams := runBackgroundBehavior()
 
+	var errorCount = 0
+
 	for {
 		select {
 		case <-pause:
@@ -78,10 +80,17 @@ func main() {
 				robotgo.KeyTap("k", "control")
 				robotgo.Sleep(3)
 				if isFishBiting(appConfig, templates) {
+					if errorCount > 0 {
+						errorCount--
+					}
 					robotgo.MouseClick("right")
 					robotgo.MicroSleep(1000)
 					if find("loot.png", lootTemplate, 0.2, 1) {
 						robotgo.MouseClick("right")
+					}
+				} else {
+					if errorCount++; errorCount > 50 {
+						go func() { exit <- true }()
 					}
 				}
 				robotgo.MicroSleep(500)
@@ -137,8 +146,6 @@ func runBackgroundBehavior() chan bool {
 	return clams
 }
 
-var errorCount = 0
-
 func isFishBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 	fileName := config.FileName
 	sizeMod := config.ScreenshotsSize
@@ -149,13 +156,8 @@ func isFishBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10)+1)
 		log.Println(err, name)
 		_ = os.Rename(fileName, name)
-		errorCount++
-		if errorCount > 100 {
-			os.Exit(0)
-		}
 		return false
 	} else {
-		errorCount = 0
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		robotgo.Sleep(2)
 
