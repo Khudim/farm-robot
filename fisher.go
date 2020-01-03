@@ -30,6 +30,7 @@ func main() {
 	}
 	_ = os.Mkdir("failed", os.FileMode(777))
 	templates := loadTemplates(appConfig.TemplateDir)
+
 	clamsTemplates := loadTemplates(appConfig.TemplateClams)
 	meatTemplate := loadTemplates(appConfig.TemplateMeat)
 	confirmTemplate := loadTemplates(appConfig.TemplateConfirm)
