@@ -35,6 +35,8 @@ func main() {
 	meatTemplate := loadTemplates(appConfig.TemplateMeat)
 	confirmTemplate := loadTemplates(appConfig.TemplateConfirm)
 	lootTemplate := loadTemplates(appConfig.TemplateLoot)
+	baublesTemplate := loadTemplates("./templates/baubles")
+	poleTemplate := loadTemplates("./templates/poles")
 
 	pause := make(chan bool)
 	unPause := make(chan bool)
@@ -47,7 +49,7 @@ func main() {
 		}
 	}()
 
-	clams := runBackgroundBehavior()
+	clams, baubles := runBackgroundBehavior()
 
 	var errorCount = 0
 
@@ -70,6 +72,21 @@ func main() {
 				if find("meat.png", meatTemplate, 1, 1) {
 					drop(confirmTemplate)
 				}
+			}
+		case <-baubles:
+			{
+				log.Println("Baubles time.")
+				robotgo.KeyTap("0")
+				robotgo.KeyTap("space")
+				if find("baubles.png", baublesTemplate, 1, 1) {
+					robotgo.MouseClick("right")
+					robotgo.MicroSleep(500)
+					if find("fishingPole.png", poleTemplate, 1, 1) {
+						robotgo.MouseClick("left")
+						robotgo.MicroSleep(7500)
+					}
+				}
+				robotgo.KeyTap("0")
 			}
 		case <-exit:
 			{
@@ -133,18 +150,24 @@ func loadTemplates(templateDir string) []gocv.Mat {
 
 	return templates
 }
-func runBackgroundBehavior() chan bool {
+func runBackgroundBehavior() (chan bool, chan bool) {
 
 	clams := make(chan bool)
+	pipe := make(chan bool)
 
 	go func() {
 		for {
-			time.Sleep(10 * time.Minute)
+			time.Sleep(11 * time.Minute)
 			clams <- true
 		}
 	}()
-
-	return clams
+	go func() {
+		for {
+			time.Sleep(10 * time.Minute)
+			pipe <- true
+		}
+	}()
+	return clams, pipe
 }
 
 func isFishBiting(config config.FisherConfig, templates []gocv.Mat) bool {
@@ -183,7 +206,7 @@ func isFishBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 
 func loot() {
 	robotgo.KeyToggle("shift", "down")
-	robotgo.MouseClick("right", true)
+	robotgo.MouseClick("right")
 	robotgo.MicroSleep(500)
 	robotgo.KeyToggle("shift", "up")
 }
