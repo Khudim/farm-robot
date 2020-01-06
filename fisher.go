@@ -15,6 +15,18 @@ import (
 	"time"
 )
 
+type element struct {
+	screenFile string
+	templates  []gocv.Mat
+	x          float64
+	y          float64
+}
+
+func newElement(templatesDir, screenShot string, x, y float64) element {
+	templates := loadTemplates(templatesDir)
+	return element{screenShot, templates, x, y}
+}
+
 func main() {
 	mode := "default"
 	if len(os.Args) > 1 {
@@ -31,12 +43,12 @@ func main() {
 	_ = os.Mkdir("failed", os.FileMode(777))
 	templates := loadTemplates(appConfig.TemplateDir)
 
-	clamsTemplates := loadTemplates(appConfig.TemplateClams)
-	meatTemplate := loadTemplates(appConfig.TemplateMeat)
-	confirmTemplate := loadTemplates(appConfig.TemplateConfirm)
-	lootTemplate := loadTemplates(appConfig.TemplateLoot)
-	baublesTemplate := loadTemplates("./templates/baubles")
-	poleTemplate := loadTemplates("./templates/poles")
+	clams := newElement("./templates/clams", "clams.png", 1, 1)
+	meat := newElement("./templates/meat", "meat.png", 1, 1)
+	confirm := newElement("./templates/confirm", "confirm.png", 1, 1)
+	lootEl := newElement("./templates/loot", "loot.png", 0.2, 1)
+	baubles := newElement("./templates/baubles", "baubles.png", 1, 1)
+	pole := newElement("./templates/poles", "poles.png", 0.5, 1)
 
 	pause := make(chan bool)
 	unPause := make(chan bool)
@@ -49,7 +61,7 @@ func main() {
 		}
 	}()
 
-	clams, baubles := runBackgroundBehavior()
+	isClamsTime, isBaublesTime := runBackgroundBehavior()
 
 	var errorCount = 0
 
@@ -61,27 +73,27 @@ func main() {
 				<-unPause
 				log.Println("Continue")
 			}
-		case <-clams:
+		case <-isClamsTime:
 			{
 				log.Println("Clams time.")
 
-				for i := 0; i < 15 && find("clam.png", clamsTemplates, 1, 1); {
+				for i := 0; i < 15 && find(clams); {
 					loot()
 					i++
 				}
-				if find("meat.png", meatTemplate, 1, 1) {
-					drop(confirmTemplate)
+				if find(meat) {
+					drop(confirm)
 				}
 			}
-		case <-baubles:
+		case <-isBaublesTime:
 			{
 				log.Println("Baubles time.")
 				robotgo.KeyTap("0")
 				robotgo.KeyTap("space")
-				if find("baubles.png", baublesTemplate, 1, 1) {
+				if find(baubles) {
 					robotgo.MouseClick("right")
 					robotgo.MicroSleep(500)
-					if find("fishingPole.png", poleTemplate, 1, 1) {
+					if find(pole) {
 						robotgo.MouseClick("left")
 						robotgo.MicroSleep(7500)
 					}
@@ -103,7 +115,7 @@ func main() {
 					}
 					robotgo.MouseClick("right")
 					robotgo.MicroSleep(1000)
-					if find("loot.png", lootTemplate, 0.2, 1) {
+					if find(lootEl) {
 						robotgo.MouseClick("right")
 					}
 				} else {
@@ -119,19 +131,19 @@ func main() {
 
 }
 
-func drop(confirmTemplate []gocv.Mat) {
+func drop(confirmEl element) {
 	screen := screenshot.GetDisplayBounds(0)
 	robotgo.MouseClick("left")
 	robotgo.MoveMouseSmooth(screen.Max.X/2, screen.Max.Y/2)
 	robotgo.MouseClick("left")
 	robotgo.MicroSleep(1000)
-	find("confirm.png", confirmTemplate, 1, 1)
+	find(confirmEl)
 	robotgo.MouseClick("left")
 }
 
-func find(fileName string, clamsTemplates []gocv.Mat, x, y float64) bool {
-	if err := createScreenFile(x, y, fileName); err == nil {
-		if point, err := detector.Detect(fileName, clamsTemplates, 0.80); err == nil && point != nil {
+func find(el element) bool {
+	if err := createScreenFile(el.x, el.y, el.screenFile); err == nil {
+		if point, err := detector.Detect(el.screenFile, el.templates, 0.80); err == nil && point != nil {
 			robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 			return true
 		}
@@ -186,16 +198,15 @@ func isFishBiting(config config.FisherConfig, templates []gocv.Mat) bool {
 		robotgo.Sleep(2)
 
 		lastCheck := time.Now()
-		checkEveryMS := 1000 / config.RefreshRate
+		interval := time.Second / time.Duration(config.RefreshRate)
 
 		for start := time.Now(); time.Since(start) < 25*time.Second; {
 			if fishIsBiting(config, templates) {
 				log.Println("get the signal")
 				return true
 			}
-			t := (time.Millisecond * time.Duration(checkEveryMS)) - time.Since(lastCheck)
-			if t > 0 {
-				robotgo.MicroSleep(float64(t / (1000 * 1000)))
+			if time.Since(lastCheck) < interval {
+				time.Sleep(interval - time.Since(lastCheck))
 			}
 			lastCheck = time.Now()
 		}

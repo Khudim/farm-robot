@@ -8,10 +8,6 @@ import (
 type FisherConfig struct {
 	FileName        string
 	TemplateDir     string
-	TemplateClams   string
-	TemplateMeat    string
-	TemplateConfirm string
-	TemplateLoot    string
 	ConfLevel       float32
 	FailTolerance   int
 	RefreshRate     int
@@ -22,10 +18,6 @@ func Parse(mode string) FisherConfig {
 	appConfig := FisherConfig{
 		FileName:        "screen.png",
 		TemplateDir:     "./templates/hinterlands",
-		TemplateClams:   "./templates/clams",
-		TemplateMeat:    "./templates/meat",
-		TemplateConfirm: "./templates/confirm",
-		TemplateLoot:    "./templates/loot",
 		ConfLevel:       0.75,
 		RefreshRate:     4,
 		ScreenshotsSize: 0.5,
