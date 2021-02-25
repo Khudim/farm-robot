@@ -47,8 +47,6 @@ func main() {
 	meat := newElement("./templates/meat", "meat.png", 1, 1)
 	confirm := newElement("./templates/confirm", "confirm.png", 1, 1)
 	lootEl := newElement("./templates/loot", "loot.png", 0.2, 1)
-	baubles := newElement("./templates/baubles", "baubles.png", 1, 1)
-	pole := newElement("./templates/poles", "poles.png", 0.5, 1)
 
 	pause := make(chan bool)
 	unPause := make(chan bool)
@@ -65,6 +63,7 @@ func main() {
 
 	var errorCount = 0
 
+	log.Printf("%+v\n", appConfig)
 	for {
 		select {
 		case <-pause:
@@ -88,17 +87,19 @@ func main() {
 		case <-isBaublesTime:
 			{
 				log.Println("Baubles time.")
-				robotgo.KeyTap("0")
-				robotgo.KeyTap("space")
-				if find(baubles) {
-					robotgo.MouseClick("right")
-					robotgo.MicroSleep(500)
-					if find(pole) {
-						robotgo.MouseClick("left")
-						robotgo.MicroSleep(7500)
-					}
-				}
-				robotgo.KeyTap("0")
+				robotgo.KeyTap("r", "control")
+				robotgo.MicroSleep(500)
+				/*				robotgo.KeyTap("0")
+								robotgo.KeyTap("space")
+								if find(baubles) {
+									robotgo.MouseClick("right")
+									robotgo.MicroSleep(500)
+									if find(pole) {
+										robotgo.MouseClick("left")
+										robotgo.MicroSleep(7500)
+									}
+								}
+								robotgo.KeyTap("0")*/
 			}
 		case <-exit:
 			{
@@ -113,10 +114,17 @@ func main() {
 					if errorCount > 0 {
 						errorCount--
 					}
-					robotgo.MouseClick("right")
-					robotgo.MicroSleep(1000)
-					if find(lootEl) {
+					if appConfig.AllowLootFilter {
 						robotgo.MouseClick("right")
+						robotgo.MicroSleep(1000)
+						for i := 0; i < 3; i++ {
+							if find(lootEl) {
+								robotgo.MouseClick("right")
+								robotgo.MicroSleep(200)
+							}
+						}
+					} else {
+						loot()
 					}
 				} else {
 					if errorCount++; errorCount > 50 {
@@ -143,7 +151,7 @@ func drop(confirmEl element) {
 
 func find(el element) bool {
 	if err := createScreenFile(el.x, el.y, el.screenFile); err == nil {
-		if point, err := detector.Detect(el.screenFile, el.templates, 0.80); err == nil && point != nil {
+		if point, err := detector.Detect(el.screenFile, el.templates, 0.70); err == nil && point != nil {
 			robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 			return true
 		}
@@ -170,12 +178,12 @@ func runBackgroundBehavior() (chan bool, chan bool) {
 	go func() {
 		for {
 			time.Sleep(11 * time.Minute)
-			clams <- true
+			// clams <- true
 		}
 	}()
 	go func() {
 		for {
-			time.Sleep(10 * time.Minute)
+			time.Sleep(30 * time.Minute)
 			pipe <- true
 		}
 	}()

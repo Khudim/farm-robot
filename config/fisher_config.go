@@ -12,6 +12,7 @@ type FisherConfig struct {
 	FailTolerance   int
 	RefreshRate     int
 	ScreenshotsSize float64
+	AllowLootFilter bool
 }
 
 func Parse(mode string) FisherConfig {
@@ -21,11 +22,12 @@ func Parse(mode string) FisherConfig {
 		ConfLevel:       0.75,
 		RefreshRate:     4,
 		ScreenshotsSize: 0.5,
+		AllowLootFilter: true,
 	}
 
 	if file, err := ioutil.ReadFile("./fisher.properties"); err == nil {
 		if cfg, er := config.ParseYaml(string(file)); er == nil {
-			if v, e := cfg.Float64("detector.ConfLevel"); e == nil {
+			if v, e := cfg.Float64("detector.confLevel"); e == nil {
 				appConfig.ConfLevel = float32(v)
 			}
 			if v, e := cfg.String("templates." + mode); e == nil {
@@ -36,6 +38,9 @@ func Parse(mode string) FisherConfig {
 			}
 			if v, e := cfg.Float64("screenshots.size"); e == nil {
 				appConfig.ScreenshotsSize = v
+			}
+			if v, e := cfg.Bool("detector.allowLootFilter"); e == nil {
+				appConfig.AllowLootFilter = v
 			}
 		}
 	} else {
