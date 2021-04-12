@@ -1,15 +1,10 @@
-package test
+package main
 
 import (
 	"encoding/json"
-	"farm-robot/detector"
-	"farm-robot/utils"
 	"github.com/go-vgo/robotgo"
-	"gocv.io/x/gocv"
 	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 )
@@ -24,24 +19,6 @@ func TestRate(t *testing.T) {
 			time.Sleep(interval - time.Since(lastCheck))
 		}
 		lastCheck = time.Now()
-	}
-}
-
-func TestShouldFindClams(t *testing.T) {
-	var templates []gocv.Mat
-	_ = filepath.Walk("./clams", func(path string, info os.FileInfo, err error) error {
-		if filepath.Ext(path) == ".png" {
-			templates = append(templates, gocv.IMRead(path, gocv.IMReadGrayScale))
-		}
-		return err
-	})
-
-	log.Println(len(templates))
-
-	if point, err := detector.Detect("test-clam.png", templates, 0.70); err == nil && point != nil {
-		log.Println(point)
-	} else {
-		log.Println(point)
 	}
 }
 
@@ -96,11 +73,11 @@ func TestShouldPlay(t *testing.T) {
 		lastTime = v.When
 		switch v.Kind {
 		case 3:
-			robotgo.KeyToggle(utils.Raw2key[v.Rawcode], "down")
+			robotgo.KeyToggle(Raw2key[v.Rawcode], "down")
 		case 5:
-			robotgo.KeyToggle(utils.Raw2key[v.Rawcode], "up")
+			robotgo.KeyToggle(Raw2key[v.Rawcode], "up")
 		default:
-			robotgo.KeyTap(utils.Raw2key[v.Rawcode])
+			robotgo.KeyTap(Raw2key[v.Rawcode])
 		}
 	}
 }
