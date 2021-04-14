@@ -1,53 +1,32 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"github.com/go-vgo/robotgo"
 	"github.com/kbinani/screenshot"
 	"github.com/valyala/fasthttp"
 	"image/png"
-	"io/ioutil"
 	"log"
-	"math/rand"
-	"os"
-	"path/filepath"
 	"time"
 )
 
 type Element struct {
-	screenFile string
 	templateId string
 	x          float64
 	y          float64
 }
 
 type point struct {
-	confidence float32
-	x          int
-	y          int
+	Confidence float32
+	X          int
+	Y          int
 }
 
-/*func NewElement(templatesDir, screenShot string, x, y float64) Element {
+/*func NewElement(templatesDir, screenShot string, X, Y float64) Element {
 	templates := readTemplates(templatesDir)
-	return Element{screenShot, templates, x, y}
+	return Element{screenShot, templates, X, Y}
 }*/
-
-func readTemplates(templateDir string) []byte {
-	var templates []byte
-	_ = filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
-		if filepath.Ext(path) == ".png" {
-			if image, e := ioutil.ReadFile(path); e != nil {
-				templates = append(templates, image...)
-			} else {
-				fmt.Println(e)
-			}
-		}
-		return err
-	})
-
-	return templates
-}
 
 func drop(confirmEl Element) {
 	screen := screenshot.GetDisplayBounds(0)
@@ -60,11 +39,10 @@ func drop(confirmEl Element) {
 }
 
 func find(el Element) bool {
-	if err := createScreenshot(el.x, el.y, el.screenFile); err == nil {
-		if point := detect(el.screenFile, el.templateId, 0.70); point != nil {
-			robotgo.MoveMouseSmooth(point.x+20, point.y+20, 1.0, 1.0)
-			return true
-		}
+	image := createScreenshot(el.x, el.y)
+	if point := detect(image, el.templateId, 0.70); point != nil {
+		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
+		return true
 	}
 	return false
 }
@@ -80,19 +58,15 @@ func useFishingRod() {
 }
 
 func isFishBiting(templateId string) bool {
-	fileName := appConfig.FileName
 	sizeMod := appConfig.ScreenshotsSize
 
-	if err := createScreenshot(sizeMod, sizeMod, fileName); err != nil {
-		return false
-	}
+	image := createScreenshot(sizeMod, sizeMod)
 
-	if point := detect(fileName, templateId, appConfig.ConfLevel); point == nil {
-		name := fmt.Sprintf("./failed/%d.png", rand.Intn(10)+1)
-		_ = os.Rename(fileName, name)
+	if point := detect(image, templateId, appConfig.ConfLevel); point == nil {
+		log.Fatal("Can't find point")
 		return false
 	} else {
-		robotgo.MoveMouseSmooth(point.x+20, point.y+20, 1.0, 1.0)
+		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		robotgo.Sleep(2)
 
 		lastCheck := time.Now()
@@ -136,51 +110,52 @@ func loot() {
 }*/
 
 func fishIsBiting(templateId string) bool {
-	if err := createScreenshot(appConfig.ScreenshotsSize, appConfig.ScreenshotsSize, appConfig.FileName); err != nil {
-		return false
-	}
-
-	p := detect(appConfig.FileName, templateId, appConfig.ConfLevel)
+	image := createScreenshot(appConfig.ScreenshotsSize, appConfig.ScreenshotsSize)
+	p := detect(image, templateId, appConfig.ConfLevel)
 	return p != nil
 }
 
-func detect(fileName, templateId string, confLevel float32) *point {
-	image, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
-	status, body, err := fasthttp.Post(image, appConfig.TemplateMatcherUrl+"/template/detect"+templateId, nil)
-	if status != 200 {
+func detect(image []byte, templateId string, acceptableConfidence float32) *point {
+
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+
+	url := appConfig.TemplateMatcherUrl + "/template/detect/" + templateId
+	req.SetRequestURI(url)
+	req.Header.SetMethodBytes([]byte("POST"))
+	req.AppendBody(image)
+
+	res := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(res)
+
+	if err := fasthttp.Do(req, res); err != nil {
 		log.Fatal(err)
 		return nil
 	}
 
 	var response point
-	if err := json.Unmarshal(body, &response); err == nil {
+	if err := json.Unmarshal(res.Body(), &response); err == nil {
 		log.Printf("%+v\n", response)
-		if response.confidence >= confLevel {
+		if response.Confidence >= acceptableConfidence {
 			return &response
 		}
+	} else {
+		log.Fatal(err)
 	}
 
 	return nil
 }
 
-func createScreenshot(x, y float64, fileName string) error {
+func createScreenshot(x, y float64) []byte {
 	screen := screenshot.GetDisplayBounds(0)
-	img, err := screenshot.Capture(
-		0,
-		0,
-		int(float64(screen.Max.X)*x),
-		int(float64(screen.Max.Y)*y))
+	img, err := screenshot.Capture(0, 0, int(float64(screen.Max.X)*x), int(float64(screen.Max.Y)*y))
 	if err != nil {
-		return err
+		log.Fatal(err)
+		return nil
 	}
-	file, err := os.Create(fileName)
-	if err != nil {
-		return err
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		panic(err)
 	}
-	defer file.Close()
-	return png.Encode(file, img)
+	return buf.Bytes()
 }

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"github.com/valyala/fasthttp"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"strconv"
 )
 
 var appConfig *FisherConfig
@@ -15,7 +19,6 @@ func init() {
 	} else {
 		defer logsFile.Close()
 	}
-	_ = os.Mkdir("failed", os.FileMode(777))
 }
 
 func main() {
@@ -26,16 +29,44 @@ func main() {
 	appConfig = Parse(mode)
 	log.Printf("%+v\n", appConfig)
 
-	templates := readTemplates(appConfig.TemplateDir)
-	status, templateId, err := fasthttp.Post(templates, appConfig.TemplateMatcherUrl+"/template/upload", nil)
-	if status != 200 {
-		log.Fatalln("Can't upload templates", err)
-		return
+	templateId := uploadTemplates()
+	fisher := loadFisher(templateId)
+	fisher.start()
+}
+
+func uploadTemplates() string {
+	var strRequestURI = []byte(appConfig.TemplateMatcherUrl + "/template/upload")
+
+	req := fasthttp.AcquireRequest()
+	defer fasthttp.ReleaseRequest(req)
+
+	req.Header.SetMethodBytes([]byte("POST"))
+
+	_ = filepath.Walk(appConfig.TemplateDir, func(path string, info os.FileInfo, err error) error {
+		if filepath.Ext(path) == ".png" {
+			if image, e := ioutil.ReadFile(path); e == nil {
+				req.Header.Add("file_"+info.Name(), strconv.Itoa(len(image)))
+				req.AppendBody(image)
+			} else {
+				fmt.Println(e)
+			}
+		}
+		return err
+	})
+
+	req.SetRequestURIBytes(strRequestURI)
+
+	res := fasthttp.AcquireResponse()
+	defer fasthttp.ReleaseResponse(res)
+
+	if err := fasthttp.Do(req, res); err != nil {
+		panic("handle error")
 	}
 
-	var fisherBot = loadFisher(string(templateId))
+	templateId := res.Body()
+	log.Println(string(templateId))
 
-	fisherBot.start()
+	return string(templateId)
 }
 
 func loadFisher(templateId string) Fisher {
