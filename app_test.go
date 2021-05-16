@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/go-vgo/robotgo"
+	"github.com/kbinani/screenshot"
+	"image/png"
 	"io/ioutil"
 	"log"
 	"testing"
@@ -80,4 +83,13 @@ func TestShouldPlay(t *testing.T) {
 			robotgo.KeyTap(Raw2key[v.Rawcode])
 		}
 	}
+}
+
+func TestScreen(t *testing.T) {
+	img, _ := screenshot.Capture(300, 300, 500, 500)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		panic(err)
+	}
+	ioutil.WriteFile("2.png", buf.Bytes(), 777)
 }

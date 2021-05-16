@@ -83,20 +83,26 @@ func (f *RetailFisher) start() {
 			}
 		default:
 			{
+				robotgo.MicroSleep(500)
+
 				useFishingRod()
 
-				if isFishBiting(f.templateId) {
+				float := findFloat(f.templateId)
+				if float == nil {
+					continue
+				}
+				robotgo.Sleep(2)
+
+				if catch(float) {
 					if errorCount > 0 {
 						errorCount--
 					}
 					loot()
-
 				} else {
 					if errorCount++; errorCount > 50 {
 						go func() { f.exit <- true }()
 					}
 				}
-				robotgo.MicroSleep(500)
 			}
 		}
 

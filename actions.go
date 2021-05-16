@@ -13,8 +13,12 @@ import (
 
 type Element struct {
 	templateId string
-	x          float64
-	y          float64
+	x          int
+	y          int
+}
+
+type Template struct {
+	Id string `json:"templateId"`
 }
 
 type point struct {
@@ -34,18 +38,18 @@ func drop(confirmEl Element) {
 	robotgo.MoveMouseSmooth(screen.Max.X/2, screen.Max.Y/2)
 	robotgo.MouseClick("left")
 	robotgo.MicroSleep(1000)
-	find(confirmEl)
+	//find(confirmEl)
 	robotgo.MouseClick("left")
 }
 
-func find(el Element) bool {
-	image := createScreenshot(el.x, el.y)
-	if point := detect(image, el.templateId, 0.70); point != nil {
+/*func find(el Element) bool {
+	img := getScreenImage()
+	if point := detect(img, el.templateId, 0.70); point != nil {
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		return true
 	}
 	return false
-}
+}*/
 
 func useBait() {
 	robotgo.KeyTap("r", "control")
@@ -57,34 +61,35 @@ func useFishingRod() {
 	robotgo.Sleep(3)
 }
 
-func isFishBiting(templateId string) bool {
-	sizeMod := appConfig.ScreenshotsSize
-
-	image := createScreenshot(sizeMod, sizeMod)
-
-	if point := detect(image, templateId, appConfig.ConfLevel); point == nil {
+func findFloat(templateId string) *Element {
+	image := makeScreenshot(0, 0, screen.Max.X, screen.Max.Y)
+	point := detect(image, templateId, appConfig.ConfLevel)
+	if point == nil {
 		log.Fatal("Can't find point")
-		return false
-	} else {
-		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
-		robotgo.Sleep(2)
-
-		lastCheck := time.Now()
-		interval := time.Second / time.Duration(appConfig.RefreshRate)
-
-		for start := time.Now(); time.Since(start) < 25*time.Second; {
-			if fishIsBiting(templateId) {
-				log.Println("get the signal")
-				return true
-			}
-			if time.Since(lastCheck) < interval {
-				time.Sleep(interval - time.Since(lastCheck))
-			}
-			lastCheck = time.Now()
-		}
-		log.Println("lost the fish")
-		return false
+		return nil
 	}
+	robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
+	return &Element{templateId, point.X, point.Y}
+}
+
+func catch(float *Element) bool {
+	lastCheck := time.Now()
+	interval := time.Second / time.Duration(appConfig.RefreshRate)
+
+	for start := time.Now(); time.Since(start) < 25*time.Second; {
+		image := makeScreenshot(float.x, float.y, 100, 100)
+		p := detect(image, float.templateId, appConfig.ConfLevel)
+		if p == nil {
+			log.Println("Fish bite")
+			return true
+		}
+		if time.Since(lastCheck) < interval {
+			time.Sleep(interval - time.Since(lastCheck))
+		}
+		lastCheck = time.Now()
+	}
+	log.Println("Lost fish")
+	return false
 }
 
 func loot() {
@@ -109,14 +114,7 @@ func loot() {
 	}
 }*/
 
-func fishIsBiting(templateId string) bool {
-	image := createScreenshot(appConfig.ScreenshotsSize, appConfig.ScreenshotsSize)
-	p := detect(image, templateId, appConfig.ConfLevel)
-	return p != nil
-}
-
 func detect(image []byte, templateId string, acceptableConfidence float32) *point {
-
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
 
@@ -146,16 +144,11 @@ func detect(image []byte, templateId string, acceptableConfidence float32) *poin
 	return nil
 }
 
-func createScreenshot(x, y float64) []byte {
-	screen := screenshot.GetDisplayBounds(0)
-	img, err := screenshot.Capture(0, 0, int(float64(screen.Max.X)*x), int(float64(screen.Max.Y)*y))
-	if err != nil {
-		log.Fatal(err)
-		return nil
-	}
+func makeScreenshot(x, y, width, height int) []byte {
+	img, _ := screenshot.Capture(x, y, width, height)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
-		panic(err)
+		return []byte{}
 	}
 	return buf.Bytes()
 }
