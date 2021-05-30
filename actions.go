@@ -27,11 +27,6 @@ type point struct {
 	Y          int
 }
 
-/*func NewElement(templatesDir, screenShot string, X, Y float64) Element {
-	templates := readTemplates(templatesDir)
-	return Element{screenShot, templates, X, Y}
-}*/
-
 func drop(confirmEl Element) {
 	screen := screenshot.GetDisplayBounds(0)
 	robotgo.MouseClick("left")
@@ -42,18 +37,34 @@ func drop(confirmEl Element) {
 	robotgo.MouseClick("left")
 }
 
-/*func find(el Element) bool {
-	img := getScreenImage()
+func find(el Element) bool {
+	img := makeScreenshot(el.x, el.y)
 	if point := detect(img, el.templateId, 0.70); point != nil {
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		return true
 	}
 	return false
-}*/
+}
 
 func useBait() {
 	robotgo.KeyTap("r", "control")
 	robotgo.MicroSleep(500)
+}
+
+func useClassicBait() {
+	robotgo.KeyTap("r", "control")
+	robotgo.MicroSleep(500)
+	robotgo.KeyTap("0")
+	robotgo.KeyTap("space")
+	if find(baubles) {
+		robotgo.MouseClick("right")
+		robotgo.MicroSleep(500)
+		if find(pole) {
+			robotgo.MouseClick("left")
+			robotgo.MicroSleep(7500)
+		}
+	}
+	robotgo.KeyTap("0")
 }
 
 func useFishingRod() {
@@ -62,7 +73,7 @@ func useFishingRod() {
 }
 
 func findFloat(templateId string) *Element {
-	image := makeScreenshot(0, 0, screen.Max.X, screen.Max.Y)
+	image := makeScreenshot(0, 0, screen.Max.X-200, screen.Max.Y-200)
 	point := detect(image, templateId, appConfig.ConfLevel)
 	if point == nil {
 		log.Fatal("Can't find point")
@@ -99,20 +110,16 @@ func loot() {
 	robotgo.KeyToggle("shift", "up")
 }
 
-/*func lootWithFilter() {
-	if appConfig.AllowLootFilter {
-		robotgo.MouseClick("right")
-		robotgo.MicroSleep(1000)
-		for i := 0; i < 3; i++ {
-			if find(lootEl) {
-				robotgo.MouseClick("right")
-				robotgo.MicroSleep(200)
-			}
+func lootWithFilter() {
+	robotgo.MouseClick("right")
+	robotgo.MicroSleep(1000)
+	for i := 0; i < 3; i++ {
+		if find(lootEl) {
+			robotgo.MouseClick("right")
+			robotgo.MicroSleep(200)
 		}
-	} else {
-		loot()
 	}
-}*/
+}
 
 func detect(image []byte, templateId string, acceptableConfidence float32) *point {
 	req := fasthttp.AcquireRequest()

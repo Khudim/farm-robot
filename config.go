@@ -6,23 +6,21 @@ import (
 )
 
 type FisherConfig struct {
-	TemplateDir        string
+	PipeTemplatesDir   string
 	ConfLevel          float32
 	RefreshRate        int
 	ScreenshotsSize    float64
-	AllowLootFilter    bool
-	IsClassic          bool
+	LootTemplatesDir   string
 	TemplateMatcherUrl string
 }
 
 func Parse(mode string) *FisherConfig {
 	appConfig := &FisherConfig{
-		TemplateDir:        "./templates/hinterlands",
+		PipeTemplatesDir:   "./templates/hinterlands",
 		ConfLevel:          0.75,
 		RefreshRate:        4,
 		ScreenshotsSize:    0.5,
-		AllowLootFilter:    false,
-		IsClassic:          false,
+		LootTemplatesDir:   "",
 		TemplateMatcherUrl: "http://localhost:8080",
 	}
 
@@ -32,7 +30,7 @@ func Parse(mode string) *FisherConfig {
 				appConfig.ConfLevel = float32(v)
 			}
 			if v, e := cfg.String("templates." + mode); e == nil {
-				appConfig.TemplateDir = "./templates/" + v
+				appConfig.PipeTemplatesDir = "./templates/" + v
 			}
 			if v, e := cfg.Int("detector.refreshRate"); e == nil {
 				appConfig.RefreshRate = v
@@ -40,8 +38,8 @@ func Parse(mode string) *FisherConfig {
 			if v, e := cfg.Float64("screenshots.size"); e == nil {
 				appConfig.ScreenshotsSize = v
 			}
-			if v, e := cfg.Bool("detector.allowLootFilter"); e == nil {
-				appConfig.AllowLootFilter = v
+			if v, e := cfg.String("templates.loot"); e == nil {
+				appConfig.LootTemplatesDir = v
 			}
 			if v, e := cfg.String("matcher.url"); e == nil {
 				appConfig.TemplateMatcherUrl = v

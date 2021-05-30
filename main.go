@@ -15,6 +15,7 @@ import (
 
 var appConfig *FisherConfig
 var screen image.Rectangle
+var lootEl *Element
 
 func init() {
 	if logsFile, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
@@ -35,12 +36,17 @@ func main() {
 
 	screen = screenshot.GetDisplayBounds(0)
 
-	templateId := uploadTemplates()
-	fisher := loadFisher(templateId)
+	if appConfig.LootTemplatesDir != "" {
+		templateId := uploadTemplates(appConfig.LootTemplatesDir)
+		lootEl = &Element{templateId: templateId, x: 0, y: 0}
+	}
+
+	templateId := uploadTemplates(appConfig.PipeTemplatesDir)
+	fisher := newRetailFisher(templateId)
 	fisher.start()
 }
 
-func uploadTemplates() string {
+func uploadTemplates(templatesDir string) string {
 	var strRequestURI = appConfig.TemplateMatcherUrl + "/template/upload"
 
 	req := fasthttp.AcquireRequest()
@@ -48,7 +54,7 @@ func uploadTemplates() string {
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
 
-	_ = filepath.Walk(appConfig.TemplateDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(templatesDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".png" {
 			part, err := writer.CreateFormFile(info.Name(), path)
 			if err != nil {
@@ -87,16 +93,4 @@ func uploadTemplates() string {
 	log.Println(template)
 
 	return template.Id
-}
-
-func loadFisher(templateId string) Fisher {
-	var f Fisher
-	if appConfig.IsClassic {
-		// f = &ClassicFisher{}
-		panic("Unsupported mode")
-	} else {
-		f = newRetailFisher(templateId)
-	}
-	f.init()
-	return f
 }

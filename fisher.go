@@ -6,11 +6,6 @@ import (
 	"time"
 )
 
-type Fisher interface {
-	init()
-	start()
-}
-
 type RetailFisher struct {
 	pause           chan bool
 	unPause         chan bool
@@ -18,11 +13,6 @@ type RetailFisher struct {
 	isBaitTime      chan bool
 	templateId      string
 	isFilterEnabled bool
-}
-
-type RetailElements struct {
-	confirm Element
-	loot    Element
 }
 
 /*func InitElements() {
@@ -62,6 +52,11 @@ func (f RetailFisher) init() {
 }
 
 func (f *RetailFisher) start() {
+	f.init()
+	f.run()
+}
+
+func (f *RetailFisher) run() {
 	var errorCount = 0
 	for {
 		select {
@@ -73,8 +68,9 @@ func (f *RetailFisher) start() {
 			}
 		case <-f.isBaitTime:
 			{
-				log.Println("Bobber time.")
-				useBait()
+				log.Println("Bait time.")
+				//useBait()
+				useClassicBait()
 			}
 		case <-f.exit:
 			{
@@ -94,10 +90,14 @@ func (f *RetailFisher) start() {
 				robotgo.Sleep(2)
 
 				if catch(float) {
+					if appConfig.AllowLootFilter {
+						lootWithFilter()
+					} else {
+						loot()
+					}
 					if errorCount > 0 {
 						errorCount--
 					}
-					loot()
 				} else {
 					if errorCount++; errorCount > 50 {
 						go func() { f.exit <- true }()
