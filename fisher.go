@@ -6,25 +6,22 @@ import (
 	"time"
 )
 
-type RetailFisher struct {
+type Fisher struct {
 	pause           chan bool
 	unPause         chan bool
 	exit            chan bool
 	isBaitTime      chan bool
-	templateId      string
 	isFilterEnabled bool
+	floatEl         *Element
+	biteEl          *Element
+	poleEl          *Element
+	lootEl          *Element
+	errorCount      int
 }
 
-/*func InitElements() {
-	var elements = RetailElements{}
-	elements.confirm = NewElement("./templateId/confirm", "confirm.png", 1, 1)
-	elements.loot = NewElement("./templateId/loot", "loot.png", 0.2, 1)
-}*/
+func newRetailFisher() *Fisher {
+	f := &Fisher{}
 
-func newRetailFisher(templateId string) *RetailFisher {
-	f := &RetailFisher{}
-
-	f.templateId = templateId
 	f.pause = make(chan bool)
 	f.unPause = make(chan bool)
 	f.exit = make(chan bool)
@@ -33,7 +30,7 @@ func newRetailFisher(templateId string) *RetailFisher {
 	return f
 }
 
-func (f RetailFisher) init() {
+func (f Fisher) init() {
 
 	go func() {
 		for {
@@ -51,13 +48,12 @@ func (f RetailFisher) init() {
 	}()
 }
 
-func (f *RetailFisher) start() {
+func (f *Fisher) start() {
 	f.init()
 	f.run()
 }
 
-func (f *RetailFisher) run() {
-	var errorCount = 0
+func (f *Fisher) run() {
 	for {
 		select {
 		case <-f.pause:
@@ -69,8 +65,11 @@ func (f *RetailFisher) run() {
 		case <-f.isBaitTime:
 			{
 				log.Println("Bait time.")
-				//useBait()
-				useClassicBait()
+				if f.biteEl != nil && f.poleEl != nil {
+					useClassicBait(f.biteEl, f.poleEl)
+				} else {
+					useBait()
+				}
 			}
 		case <-f.exit:
 			{
@@ -83,29 +82,32 @@ func (f *RetailFisher) run() {
 
 				useFishingRod()
 
-				float := findFloat(f.templateId)
-				if float == nil {
+				point := findFloat(f.floatEl)
+				if point == nil {
 					continue
 				}
 				robotgo.Sleep(2)
 
-				if catch(float) {
-					if appConfig.AllowLootFilter {
-						lootWithFilter()
-					} else {
-						loot()
-					}
-					if errorCount > 0 {
-						errorCount--
-					}
-				} else {
-					if errorCount++; errorCount > 50 {
-						go func() { f.exit <- true }()
-					}
+				if isCaught(f) {
+					loot(f.lootEl)
 				}
 			}
 		}
 
 	}
 
+}
+
+func isCaught(f *Fisher) bool {
+	if catch(f.floatEl) {
+		if f.errorCount > 0 {
+			f.errorCount--
+		}
+		return true
+	} else {
+		if f.errorCount++; f.errorCount > 50 {
+			go func() { f.exit <- true }()
+		}
+		return false
+	}
 }

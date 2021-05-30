@@ -13,9 +13,8 @@ import (
 	"path/filepath"
 )
 
-var appConfig *FisherConfig
+var appConfig *AppConfig
 var screen image.Rectangle
-var lootEl *Element
 
 func init() {
 	if logsFile, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
@@ -31,22 +30,34 @@ func main() {
 	if len(os.Args) > 1 {
 		mode = os.Args[1]
 	}
-	appConfig = Parse(mode)
+
+	appConfig, elConfig := fromPropeties(mode)
 	log.Printf("%+v\n", appConfig)
 
 	screen = screenshot.GetDisplayBounds(0)
 
-	if appConfig.LootTemplatesDir != "" {
-		templateId := uploadTemplates(appConfig.LootTemplatesDir)
-		lootEl = &Element{templateId: templateId, x: 0, y: 0}
-	}
+	fisher := newRetailFisher()
 
-	templateId := uploadTemplates(appConfig.PipeTemplatesDir)
-	fisher := newRetailFisher(templateId)
+	floatId := uploadTemplates(elConfig.FloatTemplatesDir)
+	fisher.floatEl = &Element{templateId: floatId}
+
+	lootId := uploadTemplates(elConfig.LootTemplatesDir)
+	fisher.lootEl = &Element{templateId: lootId}
+
+	biteId := uploadTemplates(elConfig.LootTemplatesDir)
+	fisher.biteEl = &Element{templateId: biteId}
+
 	fisher.start()
 }
 
-func uploadTemplates(templatesDir string) string {
+func uploadTemplates(elDir string) string {
+	if elDir == "" {
+		panic("No pipe templates")
+	}
+	return upload(elDir)
+}
+
+func upload(templatesDir string) string {
 	var strRequestURI = appConfig.TemplateMatcherUrl + "/template/upload"
 
 	req := fasthttp.AcquireRequest()

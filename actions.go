@@ -13,8 +13,11 @@ import (
 
 type Element struct {
 	templateId string
+	conf       float32
 	x          int
 	y          int
+	width      int
+	height     int
 }
 
 type Template struct {
@@ -37,9 +40,9 @@ func drop(confirmEl Element) {
 	robotgo.MouseClick("left")
 }
 
-func find(el Element) bool {
-	img := makeScreenshot(el.x, el.y)
-	if point := detect(img, el.templateId, 0.70); point != nil {
+func find(el *Element) bool {
+	img := makeScreenshot(el.x, el.y, el.width, el.height)
+	if point := detect(img, el.templateId, el.conf); point != nil {
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		return true
 	}
@@ -51,12 +54,12 @@ func useBait() {
 	robotgo.MicroSleep(500)
 }
 
-func useClassicBait() {
+func useClassicBait(bite, pole *Element) {
 	robotgo.KeyTap("r", "control")
 	robotgo.MicroSleep(500)
 	robotgo.KeyTap("0")
 	robotgo.KeyTap("space")
-	if find(baubles) {
+	if find(bite) {
 		robotgo.MouseClick("right")
 		robotgo.MicroSleep(500)
 		if find(pole) {
@@ -72,15 +75,15 @@ func useFishingRod() {
 	robotgo.Sleep(3)
 }
 
-func findFloat(templateId string) *Element {
+func findFloat(element *Element) *point {
 	image := makeScreenshot(0, 0, screen.Max.X-200, screen.Max.Y-200)
-	point := detect(image, templateId, appConfig.ConfLevel)
+	point := detect(image, element.templateId, element.conf)
 	if point == nil {
 		log.Fatal("Can't find point")
 		return nil
 	}
 	robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
-	return &Element{templateId, point.X, point.Y}
+	return point
 }
 
 func catch(float *Element) bool {
@@ -103,14 +106,22 @@ func catch(float *Element) bool {
 	return false
 }
 
-func loot() {
+func loot(lootEl *Element) {
+	if lootEl == nil {
+		lootAll()
+	} else {
+		lootWithFilter(lootEl)
+	}
+}
+
+func lootAll() {
 	robotgo.KeyToggle("shift", "down")
 	robotgo.MouseClick("right")
 	robotgo.MicroSleep(500)
 	robotgo.KeyToggle("shift", "up")
 }
 
-func lootWithFilter() {
+func lootWithFilter(lootEl *Element) {
 	robotgo.MouseClick("right")
 	robotgo.MicroSleep(1000)
 	for i := 0; i < 3; i++ {
