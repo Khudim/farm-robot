@@ -35,7 +35,11 @@ func main() {
 	fisher := newFisher()
 
 	for _, t := range appConfig.Templates {
-		fisher.elements[t.Name] = uploadTemplates(t.Path, matcherUrl)
+		id := uploadTemplates(t.Path, matcherUrl)
+		if id == "" {
+			continue
+		}
+		fisher.elements[t.Name] = &Element{templateId: id, conf: t.Conf}
 	}
 	if fisher.elements["float"] == nil {
 		panic("float template not specified.")
@@ -43,12 +47,11 @@ func main() {
 	fisher.start()
 }
 
-func uploadTemplates(elDir, url string) *Element {
+func uploadTemplates(elDir, url string) string {
 	if elDir == "" {
-		return nil
+		return ""
 	}
-	id := upload(elDir, url)
-	return &Element{templateId: id}
+	return upload(elDir, url)
 }
 
 func upload(templatesDir, url string) string {

@@ -7,6 +7,7 @@ import (
 	"github.com/kbinani/screenshot"
 	"github.com/valyala/fasthttp"
 	"image/png"
+	"io/ioutil"
 	"log"
 	"time"
 )
@@ -78,6 +79,9 @@ func catch(float *Element) bool {
 
 	for start := time.Now(); time.Since(start) < 25*time.Second; {
 		image := makeScreenshot(float.x, float.y, 100, 100)
+		if true {
+			_ = ioutil.WriteFile(lastCheck.String(), image, 777)
+		}
 		p := detect(image, float.templateId, float.conf)
 		if p == nil {
 			log.Println("Fish bite")

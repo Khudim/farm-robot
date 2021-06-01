@@ -13,9 +13,9 @@ type AppConfig struct {
 }
 
 type Template struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Conf string `json:"conf"`
+	Name string  `json:"name"`
+	Path string  `json:"path"`
+	Conf float32 `json:"conf"`
 }
 
 func fromProperties() AppConfig {
