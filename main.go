@@ -26,11 +26,6 @@ func init() {
 }
 
 func main() {
-	/*	mode := "default"
-		if len(os.Args) > 1 {
-			mode = os.Args[1]
-		}*/
-
 	appConfig := fromProperties()
 	log.Printf("%+v\n", appConfig)
 
