@@ -1,66 +1,32 @@
 package main
 
 import (
-	"github.com/olebedev/config"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 )
 
 type AppConfig struct {
-	ConfLevel          float32
-	RefreshRate        int
-	ScreenshotsSize    float64
-	TemplateMatcherUrl string
+	RefreshRate        int         `yaml:"refreshRate"`
+	TemplateMatcherUrl string      `yaml:"matcherUrl"`
+	Display            int         `yaml:"display"`
+	Templates          []*Template `yaml:"templates"`
 }
 
-type ElConfig struct {
-	FloatTemplatesDir string
-	LootTemplatesDir  string
-	BiteTemplatesDir  string
+type Template struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Conf string `json:"conf"`
 }
 
-func fromPropeties(mode string) (*AppConfig, *ElConfig) {
-	appConfig := &AppConfig{
-		ConfLevel:          0.75,
-		RefreshRate:        4,
-		ScreenshotsSize:    0.5,
-		TemplateMatcherUrl: "http://localhost:8080",
-	}
+func fromProperties() AppConfig {
+	var appConfig AppConfig
 
-	elConfig := &ElConfig{
-		FloatTemplatesDir: "./templates/hinterlands",
-		LootTemplatesDir:  "",
-		BiteTemplatesDir:  "",
-	}
-
-	if file, err := ioutil.ReadFile("./.properties"); err == nil {
-		if cfg, er := config.ParseYaml(string(file)); er == nil {
-			if v, e := cfg.Float64("detector.confLevel"); e == nil {
-				appConfig.ConfLevel = float32(v)
-			}
-			if v, e := cfg.String("templates." + mode + ".loot"); e == nil {
-				elConfig.LootTemplatesDir = v
-			}
-			if v, e := cfg.String("templates." + mode + ".float"); e == nil {
-				elConfig.FloatTemplatesDir = v
-			}
-			if v, e := cfg.String("templates." + mode + ".bite"); e == nil {
-				elConfig.BiteTemplatesDir = v
-			}
-			if v, e := cfg.String("templates." + mode + ".pole"); e == nil {
-				elConfig.BiteTemplatesDir = v
-			}
-			if v, e := cfg.Int("detector.refreshRate"); e == nil {
-				appConfig.RefreshRate = v
-			}
-			if v, e := cfg.Float64("screenshots.size"); e == nil {
-				appConfig.ScreenshotsSize = v
-			}
-			if v, e := cfg.String("matcher.url"); e == nil {
-				appConfig.TemplateMatcherUrl = v
-			}
+	if file, err := ioutil.ReadFile("./props.yaml"); err == nil {
+		if err := yaml.Unmarshal(file, &appConfig); err != nil {
+			panic(err)
 		}
 	} else {
 		panic(err)
 	}
-	return appConfig, elConfig
+	return appConfig
 }

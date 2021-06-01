@@ -20,24 +20,10 @@ type Element struct {
 	height     int
 }
 
-type Template struct {
-	Id string `json:"templateId"`
-}
-
 type point struct {
 	Confidence float32
 	X          int
 	Y          int
-}
-
-func drop(confirmEl Element) {
-	screen := screenshot.GetDisplayBounds(0)
-	robotgo.MouseClick("left")
-	robotgo.MoveMouseSmooth(screen.Max.X/2, screen.Max.Y/2)
-	robotgo.MouseClick("left")
-	robotgo.MicroSleep(1000)
-	//find(confirmEl)
-	robotgo.MouseClick("left")
 }
 
 func find(el *Element) bool {
@@ -54,12 +40,12 @@ func useBait() {
 	robotgo.MicroSleep(500)
 }
 
-func useClassicBait(bite, pole *Element) {
+func useClassicBait(bait, pole *Element) {
 	robotgo.KeyTap("r", "control")
 	robotgo.MicroSleep(500)
 	robotgo.KeyTap("0")
 	robotgo.KeyTap("space")
-	if find(bite) {
+	if find(bait) {
 		robotgo.MouseClick("right")
 		robotgo.MicroSleep(500)
 		if find(pole) {
@@ -88,11 +74,11 @@ func findFloat(element *Element) *point {
 
 func catch(float *Element) bool {
 	lastCheck := time.Now()
-	interval := time.Second / time.Duration(appConfig.RefreshRate)
+	interval := time.Second / time.Duration(4)
 
 	for start := time.Now(); time.Since(start) < 25*time.Second; {
 		image := makeScreenshot(float.x, float.y, 100, 100)
-		p := detect(image, float.templateId, appConfig.ConfLevel)
+		p := detect(image, float.templateId, float.conf)
 		if p == nil {
 			log.Println("Fish bite")
 			return true
@@ -136,7 +122,7 @@ func detect(image []byte, templateId string, acceptableConfidence float32) *poin
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
 
-	url := appConfig.TemplateMatcherUrl + "/template/detect/" + templateId
+	url := matcherUrl + "/template/detect/" + templateId
 	req.SetRequestURI(url)
 	req.Header.SetMethodBytes([]byte("POST"))
 	req.AppendBody(image)

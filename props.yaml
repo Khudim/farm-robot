@@ -1,0 +1,11 @@
+
+display: 0
+refreshRate: 4 # checks per second
+matcherUrl: "https://damp-island-29171.herokuapp.com"
+templates:
+      # common templates
+      # - { name: "bait", path: "./common/bait", conf: 90 }
+      # - { name: "pole", path: "./common/pole", conf: 90 }
+      # specific
+      - { name: "float", path: "./templates/barrens/float", conf: 75 }
+      # - { name: "loot", path: "./barrens/loot", conf: 90 }

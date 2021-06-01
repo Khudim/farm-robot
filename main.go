@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 )
 
-var appConfig *AppConfig
 var screen image.Rectangle
+var matcherUrl string
 
 func init() {
 	if logsFile, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
@@ -26,46 +26,45 @@ func init() {
 }
 
 func main() {
-	mode := "default"
-	if len(os.Args) > 1 {
-		mode = os.Args[1]
-	}
+	/*	mode := "default"
+		if len(os.Args) > 1 {
+			mode = os.Args[1]
+		}*/
 
-	appConfig, elConfig := fromPropeties(mode)
+	appConfig := fromProperties()
 	log.Printf("%+v\n", appConfig)
 
-	screen = screenshot.GetDisplayBounds(0)
+	screen = screenshot.GetDisplayBounds(appConfig.Display)
+	matcherUrl = appConfig.TemplateMatcherUrl
 
-	fisher := newRetailFisher()
+	fisher := newFisher()
 
-	floatId := uploadTemplates(elConfig.FloatTemplatesDir)
-	fisher.floatEl = &Element{templateId: floatId}
-
-	lootId := uploadTemplates(elConfig.LootTemplatesDir)
-	fisher.lootEl = &Element{templateId: lootId}
-
-	biteId := uploadTemplates(elConfig.LootTemplatesDir)
-	fisher.biteEl = &Element{templateId: biteId}
-
+	for _, t := range appConfig.Templates {
+		fisher.elements[t.Name] = uploadTemplates(t.Path, matcherUrl)
+	}
+	if fisher.elements["float"] == nil {
+		panic("float template not specified.")
+	}
 	fisher.start()
 }
 
-func uploadTemplates(elDir string) string {
+func uploadTemplates(elDir, url string) *Element {
 	if elDir == "" {
-		panic("No pipe templates")
+		return nil
 	}
-	return upload(elDir)
+	id := upload(elDir, url)
+	return &Element{templateId: id}
 }
 
-func upload(templatesDir string) string {
-	var strRequestURI = appConfig.TemplateMatcherUrl + "/template/upload"
+func upload(templatesDir, url string) string {
+	var strRequestURI = url + "/template/upload"
 
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
 
-	_ = filepath.Walk(templatesDir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(templatesDir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) == ".png" {
 			part, err := writer.CreateFormFile(info.Name(), path)
 			if err != nil {
@@ -80,6 +79,10 @@ func upload(templatesDir string) string {
 		return err
 	})
 	_ = writer.Close()
+
+	if err != nil || buf.Len() < 100 {
+		panic("No templates were found.")
+	}
 
 	req.Header.SetMethodBytes([]byte("POST"))
 	req.Header.Add("Content-Type", writer.FormDataContentType())
@@ -96,12 +99,16 @@ func upload(templatesDir string) string {
 	if res.StatusCode() != 200 {
 		panic(res.Body())
 	}
-	var template Template
-	err := json.Unmarshal(res.Body(), &template)
+	var response MatcherResponse
+	err = json.Unmarshal(res.Body(), &response)
 	if err != nil {
 		panic(err)
 	}
-	log.Println(template)
+	log.Println(response)
 
-	return template.Id
+	return response.TemplateId
+}
+
+type MatcherResponse struct {
+	TemplateId string `json:"templateId"`
 }

@@ -7,26 +7,21 @@ import (
 )
 
 type Fisher struct {
-	pause           chan bool
-	unPause         chan bool
-	exit            chan bool
-	isBaitTime      chan bool
-	isFilterEnabled bool
-	floatEl         *Element
-	biteEl          *Element
-	poleEl          *Element
-	lootEl          *Element
-	errorCount      int
+	pause      chan bool
+	unPause    chan bool
+	exit       chan bool
+	isBaitTime chan bool
+	errorCount int
+	elements   map[string]*Element
 }
 
-func newRetailFisher() *Fisher {
+func newFisher() *Fisher {
 	f := &Fisher{}
-
+	f.elements = make(map[string]*Element)
 	f.pause = make(chan bool)
 	f.unPause = make(chan bool)
 	f.exit = make(chan bool)
 	f.isBaitTime = make(chan bool)
-	f.isFilterEnabled = false
 	return f
 }
 
@@ -50,10 +45,6 @@ func (f Fisher) init() {
 
 func (f *Fisher) start() {
 	f.init()
-	f.run()
-}
-
-func (f *Fisher) run() {
 	for {
 		select {
 		case <-f.pause:
@@ -65,8 +56,8 @@ func (f *Fisher) run() {
 		case <-f.isBaitTime:
 			{
 				log.Println("Bait time.")
-				if f.biteEl != nil && f.poleEl != nil {
-					useClassicBait(f.biteEl, f.poleEl)
+				if f.elements["bait"] != nil && f.elements["pole"] != nil {
+					useClassicBait(f.elements["bait"], f.elements["pole"])
 				} else {
 					useBait()
 				}
@@ -82,14 +73,14 @@ func (f *Fisher) run() {
 
 				useFishingRod()
 
-				point := findFloat(f.floatEl)
+				point := findFloat(f.elements["float"])
 				if point == nil {
 					continue
 				}
 				robotgo.Sleep(2)
 
 				if isCaught(f) {
-					loot(f.lootEl)
+					loot(f.elements["loot"])
 				}
 			}
 		}
@@ -99,7 +90,7 @@ func (f *Fisher) run() {
 }
 
 func isCaught(f *Fisher) bool {
-	if catch(f.floatEl) {
+	if catch(f.elements["float"]) {
 		if f.errorCount > 0 {
 			f.errorCount--
 		}
