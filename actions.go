@@ -7,7 +7,6 @@ import (
 	"github.com/kbinani/screenshot"
 	"github.com/valyala/fasthttp"
 	"image/png"
-	"io/ioutil"
 	"log"
 	"time"
 )
@@ -66,7 +65,7 @@ func findFloat(element *Element) *point {
 	image := makeScreenshot(0, 0, screen.Max.X-200, screen.Max.Y-200)
 	point := detect(image, element)
 	if point != nil {
-		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
+		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 0.9, 0.9)
 	}
 	return point
 }
@@ -77,9 +76,7 @@ func catch(float *Element) bool {
 
 	for start := time.Now(); time.Since(start) < 25*time.Second; {
 		image := makeScreenshot(float.x, float.y, 100, 100)
-		if true {
-			_ = ioutil.WriteFile(lastCheck.String(), image, 777)
-		}
+
 		p := detect(image, float)
 		if p == nil {
 			log.Println("Fish bite")
@@ -104,9 +101,10 @@ func loot(lootEl *Element) {
 
 func lootAll() {
 	robotgo.KeyToggle("shift", "down")
-	robotgo.MouseClick("right")
 	robotgo.MicroSleep(500)
+	robotgo.MouseClick("right")
 	robotgo.KeyToggle("shift", "up")
+	robotgo.MicroSleep(1000)
 }
 
 func lootWithFilter(lootEl *Element) {

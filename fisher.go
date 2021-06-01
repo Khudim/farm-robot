@@ -73,11 +73,13 @@ func (f *Fisher) start() {
 
 				useFishingRod()
 
-				point := findFloat(f.elements["float"])
+				float := f.elements["float"]
+				point := findFloat(float)
 				if point == nil {
 					continue
 				}
-				robotgo.Sleep(2)
+				float.x = point.X - 50
+				float.y = point.Y - 50
 
 				if isCaught(f) {
 					loot(f.elements["loot"])

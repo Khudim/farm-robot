@@ -7,5 +7,5 @@ templates:
       # - { name: "bait", path: "./common/bait", conf: 90 }
       # - { name: "pole", path: "./common/pole", conf: 90 }
       # specific
-      - { name: "float", path: "./templates/barrens/float", conf: 75 }
+      - { name: "float", path: "./templates/barrens/float", conf: 0.65 }
       # - { name: "loot", path: "./barrens/loot", conf: 90 }
