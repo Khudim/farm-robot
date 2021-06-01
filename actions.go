@@ -29,7 +29,7 @@ type point struct {
 
 func find(el *Element) bool {
 	img := makeScreenshot(el.x, el.y, el.width, el.height)
-	if point := detect(img, el.templateId, el.conf); point != nil {
+	if point := detect(img, el); point != nil {
 		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 		return true
 	}
@@ -64,12 +64,10 @@ func useFishingRod() {
 
 func findFloat(element *Element) *point {
 	image := makeScreenshot(0, 0, screen.Max.X-200, screen.Max.Y-200)
-	point := detect(image, element.templateId, element.conf)
-	if point == nil {
-		log.Fatal("Can't find point")
-		return nil
+	point := detect(image, element)
+	if point != nil {
+		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 	}
-	robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
 	return point
 }
 
@@ -82,7 +80,7 @@ func catch(float *Element) bool {
 		if true {
 			_ = ioutil.WriteFile(lastCheck.String(), image, 777)
 		}
-		p := detect(image, float.templateId, float.conf)
+		p := detect(image, float)
 		if p == nil {
 			log.Println("Fish bite")
 			return true
@@ -122,11 +120,11 @@ func lootWithFilter(lootEl *Element) {
 	}
 }
 
-func detect(image []byte, templateId string, acceptableConfidence float32) *point {
+func detect(image []byte, element *Element) *point {
 	req := fasthttp.AcquireRequest()
 	defer fasthttp.ReleaseRequest(req)
 
-	url := matcherUrl + "/template/detect/" + templateId
+	url := matcherUrl + "/template/detect/" + element.templateId
 	req.SetRequestURI(url)
 	req.Header.SetMethodBytes([]byte("POST"))
 	req.AppendBody(image)
@@ -142,7 +140,7 @@ func detect(image []byte, templateId string, acceptableConfidence float32) *poin
 	var response point
 	if err := json.Unmarshal(res.Body(), &response); err == nil {
 		log.Printf("%+v\n", response)
-		if response.Confidence >= acceptableConfidence {
+		if response.Confidence >= element.conf {
 			return &response
 		}
 	} else {
