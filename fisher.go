@@ -37,7 +37,7 @@ func (f Fisher) init() {
 
 	go func() {
 		for {
-			time.Sleep(30 * time.Minute)
+			time.Sleep(625 * time.Second)
 			f.isBaitTime <- true
 		}
 	}()
@@ -56,8 +56,9 @@ func (f *Fisher) start() {
 		case <-f.isBaitTime:
 			{
 				log.Println("Bait time.")
-				if f.elements["bait"] != nil && f.elements["pole"] != nil {
-					useClassicBait(f.elements["bait"], f.elements["pole"])
+				pole := f.elements["pole"]
+				if pole != nil {
+					useClassicBait(pole)
 				} else {
 					useBait()
 				}
@@ -78,10 +79,18 @@ func (f *Fisher) start() {
 				if point == nil {
 					continue
 				}
-				float.x = point.X - 50
-				float.y = point.Y - 50
+				el := &Element{
+					float.templateId,
+					float.conf,
+					float.x + point.X - 25,
+					float.y + point.Y - 25,
+					150,
+					150,
+					"catch",
+					float.isDebug,
+				}
 
-				if isCaught(f) {
+				if isCaught(f, el) {
 					loot(f.elements["loot"])
 				}
 			}
@@ -91,8 +100,8 @@ func (f *Fisher) start() {
 
 }
 
-func isCaught(f *Fisher) bool {
-	if catch(f.elements["float"]) {
+func isCaught(f *Fisher, float *Element) bool {
+	if catch(float) {
 		if f.errorCount > 0 {
 			f.errorCount--
 		}

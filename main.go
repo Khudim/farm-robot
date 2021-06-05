@@ -39,7 +39,7 @@ func main() {
 		if id == "" {
 			continue
 		}
-		fisher.elements[t.Name] = &Element{templateId: id, conf: t.Conf}
+		fisher.elements[t.Name] = &Element{templateId: id, conf: t.Conf, x: t.X, y: t.Y, width: t.Width, height: t.Height, name: t.Name, isDebug: t.Debug}
 	}
 	if fisher.elements["float"] == nil {
 		panic("float template not specified.")
@@ -78,7 +78,7 @@ func upload(templatesDir, url string) string {
 	})
 	_ = writer.Close()
 
-	if err != nil || buf.Len() < 100 {
+	if err != nil || buf.Len() < 70 {
 		panic("No templates were found.")
 	}
 

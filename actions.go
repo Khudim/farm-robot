@@ -7,7 +7,10 @@ import (
 	"github.com/kbinani/screenshot"
 	"github.com/valyala/fasthttp"
 	"image/png"
+	"io/ioutil"
 	"log"
+	"math/rand"
+	"strconv"
 	"time"
 )
 
@@ -18,6 +21,8 @@ type Element struct {
 	y          int
 	width      int
 	height     int
+	name       string
+	isDebug    bool
 }
 
 type point struct {
@@ -28,8 +33,11 @@ type point struct {
 
 func find(el *Element) bool {
 	img := makeScreenshot(el.x, el.y, el.width, el.height)
+	if el.isDebug {
+		_ = ioutil.WriteFile("test-"+el.name+"-"+strconv.Itoa(rand.Int())+".png", img, 0644)
+	}
 	if point := detect(img, el); point != nil {
-		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 1.0, 1.0)
+		robotgo.MoveMouseSmooth(el.x+point.X+20, el.y+point.Y+20, 0.9, 0.9)
 		return true
 	}
 	return false
@@ -40,19 +48,22 @@ func useBait() {
 	robotgo.MicroSleep(500)
 }
 
-func useClassicBait(bait, pole *Element) {
+func useClassicBait(pole *Element) {
 	robotgo.KeyTap("r", "control")
-	robotgo.MicroSleep(500)
-	robotgo.KeyTap("0")
-	robotgo.KeyTap("space")
-	if find(bait) {
-		robotgo.MouseClick("right")
-		robotgo.MicroSleep(500)
+	for i := 0; i < 3; i++ {
+		robotgo.KeyTap("0")
+		robotgo.MicroSleep(1500)
 		if find(pole) {
+			robotgo.MicroSleep(1000)
 			robotgo.MouseClick("left")
 			robotgo.MicroSleep(7500)
+			robotgo.KeyTap("0")
+			return
+		} else {
+			continue
 		}
 	}
+
 	robotgo.KeyTap("0")
 }
 
@@ -61,11 +72,14 @@ func useFishingRod() {
 	robotgo.Sleep(3)
 }
 
-func findFloat(element *Element) *point {
-	image := makeScreenshot(0, 0, screen.Max.X-200, screen.Max.Y-200)
-	point := detect(image, element)
+func findFloat(float *Element) *point {
+	image := makeScreenshot(float.x, float.y, float.width, float.height)
+	if float.isDebug {
+		_ = ioutil.WriteFile("test-float"+strconv.Itoa(rand.Int())+".png", image, 0644)
+	}
+	point := detect(image, float)
 	if point != nil {
-		robotgo.MoveMouseSmooth(point.X+20, point.Y+20, 0.9, 0.9)
+		robotgo.MoveMouseSmooth(float.x+point.X+20, float.y+point.Y+20, 0.9, 0.9)
 	}
 	return point
 }
@@ -76,7 +90,9 @@ func catch(float *Element) bool {
 
 	for start := time.Now(); time.Since(start) < 25*time.Second; {
 		image := makeScreenshot(float.x, float.y, 100, 100)
-
+		if float.isDebug {
+			_ = ioutil.WriteFile("test-"+float.name+"-"+strconv.Itoa(rand.Int())+".png", image, 0644)
+		}
 		p := detect(image, float)
 		if p == nil {
 			log.Println("Fish bite")
@@ -104,7 +120,7 @@ func lootAll() {
 	robotgo.MicroSleep(500)
 	robotgo.MouseClick("right")
 	robotgo.KeyToggle("shift", "up")
-	robotgo.MicroSleep(1000)
+	robotgo.MicroSleep(1500)
 }
 
 func lootWithFilter(lootEl *Element) {
