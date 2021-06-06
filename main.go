@@ -3,17 +3,19 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/kbinani/screenshot"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/valyala/fasthttp"
-	"image"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
-var screen image.Rectangle
 var matcherUrl string
 
 func init() {
@@ -25,11 +27,19 @@ func init() {
 	}
 }
 
+var (
+	lootProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "fisher_loot_total",
+		Help: "The total number of fish looted",
+	})
+)
+
 func main() {
+	http.Handle("/metrics", promhttp.Handler())
+
 	appConfig := fromProperties()
 	log.Printf("%+v\n", appConfig)
 
-	screen = screenshot.GetDisplayBounds(appConfig.Display)
 	matcherUrl = appConfig.TemplateMatcherUrl
 
 	fisher := newFisher()
@@ -39,12 +49,28 @@ func main() {
 		if id == "" {
 			continue
 		}
-		fisher.elements[t.Name] = &Element{templateId: id, conf: t.Conf, x: t.X, y: t.Y, width: t.Width, height: t.Height, name: t.Name, isDebug: t.Debug}
+		fisher.elements[t.Name] = fromTemplate(id, t)
 	}
 	if fisher.elements["float"] == nil {
 		panic("float template not specified.")
 	}
-	fisher.start()
+
+	go fisher.start()
+
+	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(appConfig.Port), nil))
+}
+
+func fromTemplate(id string, t *Template) *Element {
+	return &Element{
+		templateId: id,
+		conf:       t.Conf,
+		x:          t.X,
+		y:          t.Y,
+		width:      t.Width,
+		height:     t.Height,
+		name:       t.Name,
+		isDebug:    t.Debug,
+	}
 }
 
 func uploadTemplates(elDir, url string) string {

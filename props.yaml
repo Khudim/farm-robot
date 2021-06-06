@@ -1,4 +1,4 @@
-display: 0
+port: 8080
 refreshRate: 6 # checks per second
 matcherUrl: "http://localhost:8080"
 templates:

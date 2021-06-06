@@ -130,6 +130,7 @@ func lootWithFilter(lootEl *Element) {
 		if find(lootEl) {
 			robotgo.MouseClick("right")
 			robotgo.MicroSleep(200)
+			lootProcessed.Inc()
 		}
 	}
 }

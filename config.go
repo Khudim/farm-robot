@@ -8,7 +8,7 @@ import (
 type AppConfig struct {
 	RefreshRate        int         `yaml:"refreshRate"`
 	TemplateMatcherUrl string      `yaml:"matcherUrl"`
-	Display            int         `yaml:"display"`
+	Port               int         `yaml:"port"`
 	Templates          []*Template `yaml:"templates"`
 }
 
