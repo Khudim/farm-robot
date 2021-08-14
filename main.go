@@ -51,6 +51,7 @@ func main() {
 		}
 		fisher.elements[t.Name] = fromTemplate(id, t)
 	}
+
 	if fisher.elements["float"] == nil {
 		panic("float template not specified.")
 	}
