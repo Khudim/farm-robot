@@ -80,7 +80,7 @@ func findFloat(float *Element) *point {
 	}
 	point := detect(image, float)
 	if point != nil {
-		robotgo.MoveMouseSmooth(float.x+point.X+20, float.y+point.Y+20, 0.9, 0.9)
+		robotgo.MoveMouseSmooth(float.x+point.X+15, float.y+point.Y+15, 0.9, 0.9)
 	}
 	return point
 }
