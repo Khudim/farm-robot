@@ -1,15 +1,21 @@
 port: 8080
-refreshRate: 6 # checks per second
+refreshRate: 4 # checks per second
 matcherUrl: "http://localhost:8080"
+searchGrid:
+      x: 720
+      y: 214
+      width: 450
+      height: 400
 templates:
       # common templates
       # - { name: "bait", path: "./common/bait", conf: 90 }
       #
-      - { name: "green", path: "./templates/nw/green", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      - { name: "red", path: "./templates/nw/red", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      - { name: "pipe", path: "./templates/nw/pipe", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      - { name: "ready", path: "./templates/nw/ready", conf: 0.90, x: 400, width: 1500, height: 1500 }
+      # - { name: "green", path: "./templates/nw/green", conf: 0.90, x: 400, width: 1500, height: 1500 }
+      # - { name: "red", path: "./templates/nw/red", conf: 0.90, x: 400, width: 1500, height: 1500 }
+      # - { name: "pipe", path: "./templates/nw/pipe", conf: 0.90, x: 400, width: 1500, height: 1500 }
+      # - { name: "ready", path: "./templates/nw/ready", conf: 0.90, x: 400, width: 1500, height: 1500 }
       # specific
       # - { name: "float", path: "./templates/zangarmash/float", conf: 0.66 }
-      - { name: "float", path: "./templates/nagrand/float", conf: 0.68, x: 200, width: 1200, height: 500, debug: false }
-      - { name: "loot", path: "./templates/terrokar/loot",  conf: 0.85, y: 100, width: 300, height: 600, debug: false }
+      # - { name: "float", path: "./templates/nagrand/float", conf: 0.68, x: 200, width: 1200, height: 500, debug: false }
+      # - { name: "loot", path: "./templates/terrokar/loot",  conf: 0.85, y: 100, width: 300, height: 600, debug: false }
+      - { name: "floatText", path: "./templates/common/floatText",  conf: 0.85,x: 1660, y: 909, width: 90, height: 40, debug: false }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/go-vgo/robotgo"
 	"log"
 	"time"
@@ -13,6 +14,7 @@ type Fisher struct {
 	isBaitTime chan bool
 	errorCount int
 	elements   map[string]*Element
+	searchGrid *Grid
 }
 
 func newFisher() *Fisher {
@@ -74,24 +76,47 @@ func (f *Fisher) start() {
 
 				useFishingRod()
 
-				float := f.elements["float"]
-				point := findFloat(float)
-				if point == nil {
-					continue
-				}
-				el := &Element{
-					float.templateId,
-					float.conf,
-					float.x + point.X - 25,
-					float.y + point.Y - 25,
-					150,
-					150,
-					"catch",
-					float.isDebug,
-				}
+				var point *point
 
-				if isCaught(f, el) {
-					loot(f.elements["loot"])
+				float := f.elements["float"]
+
+				if float == nil {
+					floatText := f.elements["floatText"]
+					grid := f.searchGrid
+					if floatText == nil {
+						fmt.Println("Can't find anything")
+						return
+					}
+					point = searchForFloat(floatText, grid)
+					if point == nil {
+						continue
+					}
+					robotgo.MoveMouseSmooth(point.X, point.Y+33, 0.9, 0.9)
+					robotgo.Sleep(5)
+					if f.isCaught(floatText, false) {
+						robotgo.MoveMouseSmooth(point.X, point.Y, 0.9, 0.9)
+						loot(f.elements["loot"])
+					}
+				} else {
+					point = findFloat(float)
+					if point == nil {
+						continue
+					}
+
+					el := &Element{
+						float.templateId,
+						float.conf,
+						float.x + point.X - 25,
+						float.y + point.Y - 25,
+						150,
+						150,
+						"catch",
+						float.isDebug,
+					}
+
+					if f.isCaught(el, true) {
+						loot(f.elements["loot"])
+					}
 				}
 			}
 		}
@@ -100,8 +125,30 @@ func (f *Fisher) start() {
 
 }
 
-func isCaught(f *Fisher, float *Element) bool {
-	if catch(float) {
+func searchForFloat(floatText *Element, grid *Grid) *point {
+	stepX := grid.Width / 10
+	stepY := grid.Height / 10
+	positionX := grid.X
+	positionY := grid.Y
+
+	for i := 0; i < 100; i++ {
+		robotgo.MoveMouseSmooth(positionX, positionY, 0.9, 0.9)
+		p := find(floatText)
+		if p != nil {
+			return &point{X: positionX, Y: positionY}
+		}
+		if positionX != grid.X+grid.Width {
+			positionX += stepX
+		} else {
+			positionX = grid.X
+			positionY += stepY
+		}
+	}
+	return nil
+}
+
+func (f *Fisher) isCaught(float *Element, reversed bool) bool {
+	if catch(float, reversed) {
 		if f.errorCount > 0 {
 			f.errorCount--
 		}

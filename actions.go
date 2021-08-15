@@ -31,16 +31,15 @@ type point struct {
 	Y          int
 }
 
-func find(el *Element) bool {
+func find(el *Element) *point {
 	img := makeScreenshot(el.x, el.y, el.width, el.height)
 	if el.isDebug {
 		_ = ioutil.WriteFile("test-"+el.name+"-"+strconv.Itoa(rand.Int())+".png", img, 0644)
 	}
 	if point := detect(img, el); point != nil {
-		robotgo.MoveMouseSmooth(el.x+point.X+20, el.y+point.Y+20, 0.9, 0.9)
-		return true
+		return point
 	}
-	return false
+	return nil
 }
 
 func useBait() {
@@ -53,7 +52,9 @@ func useClassicBait(pole *Element) {
 	for i := 0; i < 3; i++ {
 		robotgo.KeyTap("0")
 		robotgo.MicroSleep(1500)
-		if find(pole) {
+		point := find(pole)
+		if point != nil {
+			robotgo.MoveMouseSmooth(pole.x+point.X+20, point.Y+point.Y+20, 0.9, 0.9)
 			robotgo.MicroSleep(1000)
 			robotgo.MouseClick("left")
 			robotgo.MicroSleep(7500)
@@ -84,7 +85,7 @@ func findFloat(float *Element) *point {
 	return point
 }
 
-func catch(float *Element) bool {
+func catch(float *Element, negativeCase bool) bool {
 	lastCheck := time.Now()
 	interval := time.Second / time.Duration(4)
 
@@ -94,8 +95,12 @@ func catch(float *Element) bool {
 			_ = ioutil.WriteFile("test-"+float.name+"-"+strconv.Itoa(rand.Int())+".png", image, 0644)
 		}
 		p := detect(image, float)
-		if p == nil {
+		if negativeCase && p == nil {
 			log.Println("Fish bite")
+			return true
+		}
+		if !negativeCase && p != nil {
+			log.Println("Fish bite, positive case")
 			return true
 		}
 		if time.Since(lastCheck) < interval {
@@ -127,7 +132,9 @@ func lootWithFilter(lootEl *Element) {
 	robotgo.MouseClick("right")
 	robotgo.MicroSleep(1000)
 	for i := 0; i < 3; i++ {
-		if find(lootEl) {
+		point := find(lootEl)
+		if point != nil {
+			robotgo.MoveMouseSmooth(lootEl.x+point.X+20, lootEl.y+point.Y+20, 0.9, 0.9)
 			robotgo.MouseClick("right")
 			robotgo.MicroSleep(200)
 			lootProcessed.Inc()

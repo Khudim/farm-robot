@@ -44,16 +44,16 @@ func main() {
 
 	fisher := newFisher()
 
+	if appConfig.SearchGrid != nil {
+		fisher.searchGrid = appConfig.SearchGrid
+	}
+
 	for _, t := range appConfig.Templates {
 		id := uploadTemplates(t.Path, matcherUrl)
 		if id == "" {
 			continue
 		}
 		fisher.elements[t.Name] = fromTemplate(id, t)
-	}
-
-	if fisher.elements["float"] == nil {
-		panic("float template not specified.")
 	}
 
 	go fisher.start()

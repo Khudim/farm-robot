@@ -10,6 +10,7 @@ type AppConfig struct {
 	TemplateMatcherUrl string      `yaml:"matcherUrl"`
 	Port               int         `yaml:"port"`
 	Templates          []*Template `yaml:"templates"`
+	SearchGrid         *Grid       `yaml:"searchGrid"`
 }
 
 type Template struct {
@@ -21,6 +22,13 @@ type Template struct {
 	Width  int     `json:"width"`
 	Height int     `json:"height"`
 	Debug  bool    `json:"debug"`
+}
+
+type Grid struct {
+	X      int `json:"x"`
+	Y      int `json:"y"`
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 func fromProperties() AppConfig {
