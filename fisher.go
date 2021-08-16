@@ -91,8 +91,15 @@ func (f *Fisher) start() {
 					if point == nil {
 						continue
 					}
-					robotgo.MoveMouseSmooth(point.X, point.Y+33, 0.9, 0.9)
-					robotgo.Sleep(5)
+
+					for i := 0; i < 5; i++ {
+						robotgo.MoveMouseSmooth(point.X, point.Y+i*10, 0.9, 0.9)
+						robotgo.Sleep(1)
+						if find(floatText) == nil {
+							break
+						}
+					}
+
 					if f.isCaught(floatText, false) {
 						robotgo.MoveMouseSmooth(point.X, point.Y, 0.9, 0.9)
 						loot(f.elements["loot"])
@@ -126,22 +133,29 @@ func (f *Fisher) start() {
 }
 
 func searchForFloat(floatText *Element, grid *Grid) *point {
-	stepX := grid.Width / 10
+	stepX := grid.Width / 5
 	stepY := grid.Height / 10
 	positionX := grid.X
 	positionY := grid.Y
 
-	for i := 0; i < 100; i++ {
-		robotgo.MoveMouseSmooth(positionX, positionY, 0.9, 0.9)
+	for {
 		p := find(floatText)
 		if p != nil {
-			return &point{X: positionX, Y: positionY}
+			mX, mY := robotgo.GetMousePos()
+			return &point{X: mX, Y: mY}
 		}
-		if positionX != grid.X+grid.Width {
+
+		robotgo.MoveMouseSmooth(positionX, positionY, 0.9, 0.9)
+
+		if positionX < grid.X+grid.Width {
 			positionX += stepX
 		} else {
 			positionX = grid.X
 			positionY += stepY
+		}
+
+		if positionX > grid.X+grid.Width && positionY > grid.Y+grid.Height {
+			break
 		}
 	}
 	return nil
