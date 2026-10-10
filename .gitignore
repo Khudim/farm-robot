@@ -1,0 +1,21 @@
+# IDE
+.idea/
+
+# Сборка
+/farm-robot
+/farm-robot.exe
+/youtube.exe
+/cmd/inputrec/inputrec
+/cmd/inputrec/inputrec.exe
+
+# Рантайм
+fisherlogs.txt
+session.json
+
+# Снимки трассировки
+trace/
+
+# Данные пользователя: эталоны поплавка, запись движений мыши, снимки
+/templates/
+/mouse.json
+/shots/

@@ -3,5 +3,6 @@ scrape_configs:
     metrics_path: /metrics
     scrape_interval: 5s
     static_configs:
+      # Порт должен совпадать с port из props.yaml.
       - targets:
-          - http://host.docker.internal:8080
+          - host.docker.internal:9100

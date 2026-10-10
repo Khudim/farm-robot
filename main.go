@@ -1,139 +1,105 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/valyala/fasthttp"
-	"io/ioutil"
+	"context"
+	"errors"
+	"flag"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
-	"path/filepath"
+	"os/signal"
 	"strconv"
-)
+	"syscall"
+	"time"
 
-var matcherUrl string
+	"farm-robot/internal/mouse"
+	"farm-robot/internal/vision"
+	"farm-robot/internal/window"
 
-func init() {
-	if logsFile, err := os.OpenFile("fisherlogs.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
-		log.Fatalf("error opening file: %v", err)
-		return
-	} else {
-		defer logsFile.Close()
-	}
-}
-
-var (
-	lootProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "fisher_loot_total",
-		Help: "The total number of fish looted",
-	})
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
-	http.Handle("/metrics", promhttp.Handler())
+	configPath := flag.String("config", "props.yaml", "путь к конфигу")
+	traceFlag := flag.Bool("trace", false, "пошаговый разбор каждого цикла")
+	tuneFlag := flag.Bool("tune-audio", false, "показать уровни звука для подбора порогов и выйти")
+	flag.Parse()
 
-	appConfig := fromProperties()
-	log.Printf("%+v\n", appConfig)
+	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
+	log.SetPrefix("fisher: ")
 
-	matcherUrl = appConfig.TemplateMatcherUrl
-
-	fisher := newFisher()
-
-	if appConfig.SearchGrid != nil {
-		fisher.searchGrid = appConfig.SearchGrid
-	}
-
-	for _, t := range appConfig.Templates {
-		id := uploadTemplates(t.Path, matcherUrl)
-		if id == "" {
-			continue
-		}
-		fisher.elements[t.Name] = fromTemplate(id, t)
-	}
-
-	go fisher.start()
-
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(appConfig.Port), nil))
-}
-
-func fromTemplate(id string, t *Template) *Element {
-	return &Element{
-		templateId: id,
-		conf:       t.Conf,
-		x:          t.X,
-		y:          t.Y,
-		width:      t.Width,
-		height:     t.Height,
-		name:       t.Name,
-		isDebug:    t.Debug,
-	}
-}
-
-func uploadTemplates(elDir, url string) string {
-	if elDir == "" {
-		return ""
-	}
-	return upload(elDir, url)
-}
-
-func upload(templatesDir, url string) string {
-	var strRequestURI = url + "/template/upload"
-
-	req := fasthttp.AcquireRequest()
-	defer fasthttp.ReleaseRequest(req)
-	buf := new(bytes.Buffer)
-	writer := multipart.NewWriter(buf)
-
-	err := filepath.Walk(templatesDir, func(path string, info os.FileInfo, err error) error {
-		if filepath.Ext(path) == ".png" {
-			part, err := writer.CreateFormFile(info.Name(), path)
-			if err != nil {
-				return err
-			}
-			b, err := ioutil.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			_, _ = part.Write(b)
-		}
-		return err
-	})
-	_ = writer.Close()
-
-	if err != nil || buf.Len() < 70 {
-		panic("No templates were found.")
-	}
-
-	req.Header.SetMethodBytes([]byte("POST"))
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.SetRequestURI(strRequestURI)
-	req.SetBody(buf.Bytes())
-
-	res := fasthttp.AcquireResponse()
-	defer fasthttp.ReleaseResponse(res)
-
-	if err := fasthttp.Do(req, res); err != nil {
-		panic("handle error")
-	}
-
-	if res.StatusCode() != 200 {
-		panic(res.Body())
-	}
-	var response MatcherResponse
-	err = json.Unmarshal(res.Body(), &response)
+	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("конфигурация: %v", err)
 	}
-	log.Println(response)
 
-	return response.TemplateId
+	splash, err := NewSplashDetector(cfg.Splash)
+	if err != nil {
+		log.Fatalf("детектор всплеска: %v", err)
+	}
+	defer splash.Close()
+
+	if *tuneFlag {
+		tuneAudio(splash, cfg.Splash)
+		return
+	}
+	defer window.Close()
+
+	closeBoard, err := useBoard(cfg.Input)
+	if err != nil {
+		log.Fatalf("плата: %v", err)
+	}
+	defer closeBoard()
+
+	useRecording(cfg.Human.Recording)
+	mouse.LogScale()
+	log.Printf("ввод: удержание %v, после модификаторов %v", cfg.Input.Hold.D(), cfg.Input.Settle.D())
+
+	templates, skipped, err := vision.LoadTemplates(cfg.Search.Templates)
+	if err != nil {
+		log.Fatalf("эталоны: %v", err)
+	}
+	for _, err := range skipped {
+		log.Printf("пропускаю: %v — удали файл", err)
+	}
+	log.Printf("эталонов: %d из %s", len(templates), cfg.Search.Templates)
+
+	f := newFisher(cfg, splash, templates, newTracer(*traceFlag))
+	go f.Start()
+	go pollLevels(splash, f.Done())
+
+	srv := &http.Server{Addr: ":" + strconv.Itoa(cfg.Port), Handler: promhttp.Handler()}
+	go func() {
+		log.Printf("метрики: http://localhost:%d/metrics", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("http: %v", err)
+		}
+	}()
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	select {
+	case <-f.Done():
+		log.Println("рыбак остановился")
+	case s := <-sig:
+		log.Printf("сигнал %s", s)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(ctx)
 }
 
-type MatcherResponse struct {
-	TemplateId string `json:"templateId"`
+func pollLevels(d *SplashDetector, done <-chan struct{}) {
+	t := time.NewTicker(time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			base, peak := d.Levels()
+			splashBaseline.Set(base)
+			splashPeak.Set(peak)
+		case <-done:
+			return
+		}
+	}
 }

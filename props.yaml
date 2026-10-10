@@ -1,21 +1,56 @@
-port: 8080
-refreshRate: 4 # checks per second
-matcherUrl: "http://localhost:8080"
-searchGrid:
-      x: 720
-      y: 214
-      width: 450
-      height: 400
-templates:
-      # common templates
-      # - { name: "bait", path: "./common/bait", conf: 90 }
-      #
-      # - { name: "green", path: "./templates/nw/green", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      # - { name: "red", path: "./templates/nw/red", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      # - { name: "pipe", path: "./templates/nw/pipe", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      # - { name: "ready", path: "./templates/nw/ready", conf: 0.90, x: 400, width: 1500, height: 1500 }
-      # specific
-      # - { name: "float", path: "./templates/zangarmash/float", conf: 0.66 }
-      # - { name: "float", path: "./templates/nagrand/float", conf: 0.68, x: 200, width: 1200, height: 500, debug: false }
-      # - { name: "loot", path: "./templates/terrokar/loot",  conf: 0.85, y: 100, width: 300, height: 600, debug: false }
-      - { name: "floatText", path: "./templates/common/floatText",  conf: 0.85,x: 1660, y: 909, width: 90, height: 40, debug: false }
+port: 9100
+
+window:
+  title: "World of Warcraft"   # подстрока заголовка; лаунчер Battle.net тоже подходит — закрой его
+  requireFocus: true
+
+keys:                          # должны совпадать с биндами в игре
+  cast: "f"
+  bait: "ctrl+r"
+
+loot:
+  # Shift в WoW инвертирует автолут. В игре автолут выключен — true, включён — false.
+  shift: true
+
+search:
+  templates: ./templates/bobber
+  minScore: 0.55               # ниже 0.5 пойдут ложные срабатывания
+  stride: 2
+  grabKey: f6                  # наведи на поплавок и нажми: эталон снят, область встала вокруг него
+  grabRadius: 20               # итого 41x41
+  width: 320                   # область поиска вокруг поплавка: он ложится с разбросом до 60-80 px
+  height: 220
+
+splash:                        # подбирается через: go run . -tune-audio
+  threshold: 2.8
+  minLevel: 0.0037
+  refractory: 1.5s
+
+input:                         # игра опрашивает ввод раз в кадр; что короче кадра — теряется
+  hold: 80ms
+  settle: 150ms
+  arduino: auto                # Pro Micro с hid_emulator: "auto" — найти по USB, или "COM4"
+  moveMin: 300ms               # мышь едет к поплавку кривой за случайное время из диапазона
+  moveMax: 600ms
+
+timing:
+  castSettle: 1200ms
+  castTimeout: 5s
+  castRetries: 2
+  biteGrace: 1500ms            # приводнение поплавка тоже всплеск — столько не слушаем
+  biteTimeout: 22s
+  lootSettle: 1500ms
+  baitInterval: 10m
+  maxMisses: 20
+
+human:                         # чтобы ритм не был машинным: всё случайно в пределах
+  reaction: {min: 250ms, max: 700ms}     # от всплеска до клика
+  beforeCast: {min: 400ms, max: 2s}      # пауза перед каждым забросом
+  aimJitter: 4                 # клик в случайную точку поплавка ±px
+  wander: 0.35                 # после стольких (доля) циклов мышь уходит в сторону
+  wanderDist: {min: 60, max: 250}
+  breakEvery: {min: 25, max: 45}         # перерыв раз в столько забросов; 0 — без перерывов
+  breakFor: {min: 20s, max: 90s}
+  idleEvery: {min: 2s, max: 6s}          # пока ждём поклёвку, мышь шевелится (восьмёрка, влево-вправо, круг); max 0 — стоит
+  idleSize: {min: 20, max: 70}           # размах шевеления, px
+  recording: mouse.json        # ваши движения: go run ./cmd/mouserec; нет файла — синтетика
